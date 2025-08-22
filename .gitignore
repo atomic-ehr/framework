@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-error.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.output/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Lock files (keep package-lock.json if using npm)
+bun.lockb
+yarn.lock
+
+# Example server data
+examples/*/fhir-data.db
+examples/*/us-core-data.db
+examples/*/data.db
+
+# OS files
+Thumbs.db
+.Spotlight-V100
+.Trashes

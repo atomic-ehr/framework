@@ -1,0 +1,12 @@
+{
+  "name": "basic-fhir-server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run server.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@atomic/framework": "file:../../"
+  }
+}
