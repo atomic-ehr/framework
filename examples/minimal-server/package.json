@@ -2,8 +2,11 @@
   "name": "minimal-fhir-server",
   "version": "0.1.0",
   "type": "module",
+  "main": "index.js",
   "scripts": {
-    "dev": "bun run server.js"
+    "start": "bun run index.js",
+    "dev": "bun --watch index.js",
+    "test": "bun test"
   },
   "dependencies": {
     "@atomic/framework": "file:../../"

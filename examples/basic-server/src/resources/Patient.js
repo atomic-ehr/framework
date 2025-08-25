@@ -1,0 +1,20 @@
+import { defineResource } from '@atomic/framework';
+
+export default defineResource({
+  resourceType: 'Patient',
+  
+  // Custom search parameters
+  searches: {
+    'mrn': {
+      type: 'token',
+      path: 'identifier',
+      documentation: 'Search by Medical Record Number'
+    },
+    'age': {
+      type: 'number',
+      path: 'birthDate',
+      documentation: 'Search by calculated age'
+    }
+  }
+  // All capabilities (create, read, update, delete, search, history) enabled by default
+});

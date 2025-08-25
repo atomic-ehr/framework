@@ -1,0 +1,9 @@
+{
+  "name": "sample.core",
+  "version": "1.0.0",
+  "canonical": "http://example.org/fhir/sample-core",
+  "description": "Sample FHIR Core definitions",
+  "dependencies": {
+    "hl7.fhir.r4.core": "4.0.1"
+  }
+}

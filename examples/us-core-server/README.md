@@ -199,17 +199,24 @@ curl -X POST "http://localhost:3001/\$export" \
 
 ```
 us-core-server/
-├── server.js                  # Main server with US Core configuration
-├── resources/                # US Core profiled resources
-│   ├── USCorePatient.js     # Patient with US Core validation
-│   ├── USCoreObservation.js # Observation with vital signs
-│   └── USCorePractitioner.js # Practitioner with NPI validation
-├── operations/               # FHIR operations
-│   ├── everything.js        # Patient $everything
-│   └── export.js           # Bulk data $export
-└── middleware/              # Security middleware
-    ├── smart-auth.js       # SMART on FHIR authentication
-    └── consent.js          # Consent-based access control
+├── index.js                  # Entry point
+├── src/                      # Source code directory
+│   ├── server.js             # Server configuration with US Core settings
+│   ├── resources/            # US Core profiled resources
+│   │   ├── USCorePatient.js     # Patient resource definition
+│   │   ├── USCoreObservation.js # Observation resource definition
+│   │   └── USCorePractitioner.js # Practitioner resource definition
+│   ├── hooks/                # Lifecycle hooks for US Core validation
+│   │   ├── patient-validation.js    # Patient US Core validation
+│   │   ├── observation-vitals.js    # Vital signs and critical values
+│   │   └── practitioner-npi.js      # NPI validation hooks
+│   ├── operations/           # FHIR operations
+│   │   ├── everything.js     # Patient $everything
+│   │   └── export.js         # Bulk data $export
+│   └── middleware/           # Security middleware
+│       ├── smart-auth.js     # SMART on FHIR authentication
+│       └── consent.js        # Consent-based access control
+└── package.json              # Project dependencies
 ```
 
 ## Testing Compliance

@@ -1,0 +1,31 @@
+{
+  "resourceType": "ValueSet",
+  "id": "sample-conditions",
+  "url": "http://example.org/fhir/ValueSet/sample-conditions",
+  "version": "1.0.0",
+  "name": "SampleConditions",
+  "title": "Sample Condition Codes",
+  "status": "active",
+  "description": "Sample set of condition codes",
+  "compose": {
+    "include": [
+      {
+        "system": "http://example.org/fhir/CodeSystem/sample-conditions",
+        "concept": [
+          {
+            "code": "diabetes",
+            "display": "Diabetes Mellitus"
+          },
+          {
+            "code": "hypertension",
+            "display": "Hypertension"
+          },
+          {
+            "code": "asthma",
+            "display": "Asthma"
+          }
+        ]
+      }
+    ]
+  }
+}

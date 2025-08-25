@@ -2,10 +2,12 @@ import { Router } from './router.js';
 import { ResourceRegistry } from './resource-registry.js';
 import { OperationRegistry } from './operation-registry.js';
 import { MiddlewareManager } from './middleware-manager.js';
+import { HooksManager } from './hooks-manager.js';
 import { StorageManager } from '../storage/storage-manager.js';
 import { Validator } from './validator.js';
 import { CapabilityStatement } from './capability-statement.js';
 import { FilesystemLoader } from './filesystem-loader.js';
+import { PackageManager } from './package-manager.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -16,6 +18,7 @@ export class Atomic {
         name: 'Atomic FHIR Server',
         version: '0.1.0',
         fhirVersion: '4.0.1',
+        port: 3000,
         url: 'http://localhost:3000',
         ...config.server
       },
@@ -36,15 +39,36 @@ export class Atomic {
         subscription: false,
         ...config.features
       },
-      autoload: {
-        enabled: true,
-        paths: {
-          resources: 'resources',
-          operations: 'operations',
-          middleware: 'middleware',
-          implementationGuides: 'implementation-guides'
-        },
-        ...config.autoload
+      autoload: (() => {
+        if (config.autoload === false) {
+          return { enabled: false };
+        }
+        const autoloadConfig = {
+          enabled: true,  // Default to enabled
+          paths: {
+            resources: 'src/resources',
+            operations: 'src/operations',
+            middleware: 'src/middleware',
+            hooks: 'src/hooks',
+            implementationGuides: 'src/implementation-guides'
+          }
+        };
+        if (typeof config.autoload === 'object') {
+          // Merge paths if provided
+          if (config.autoload.paths) {
+            autoloadConfig.paths = { ...autoloadConfig.paths, ...config.autoload.paths };
+          }
+          // Only override enabled if explicitly set
+          if ('enabled' in config.autoload) {
+            autoloadConfig.enabled = config.autoload.enabled;
+          }
+        }
+        return autoloadConfig;
+      })(),
+      packages: {
+        enabled: true,  // Enabled by default
+        path: 'packages',
+        ...(config.packages === false ? { enabled: false } : config.packages)
       },
       ...config
     };
@@ -53,9 +77,11 @@ export class Atomic {
     this.resources = new ResourceRegistry();
     this.operations = new OperationRegistry();
     this.middleware = new MiddlewareManager();
+    this.hooks = new HooksManager();
     this.storage = new StorageManager(this.config.storage);
     this.validator = new Validator(this.config.validation);
     this.capabilityStatement = new CapabilityStatement(this);
+    this.packageManager = new PackageManager(this.config.packages.path);
     
     this.setupCoreRoutes();
   }
@@ -127,19 +153,14 @@ export class Atomic {
         await this.validator.validate(body, resourceType);
       }
 
-      // Apply before hooks
-      let resource = body;
-      if (resourceDef.hooks?.beforeCreate) {
-        resource = await resourceDef.hooks.beforeCreate(resource, { req });
-      }
+      // Apply hooks
+      let resource = await this.hooks.executeBeforeCreate(resourceType, body, { req, storage: this.storage });
 
       // Store resource
       const created = await this.storage.create(resourceType, resource);
 
       // Apply after hooks
-      if (resourceDef.hooks?.afterCreate) {
-        await resourceDef.hooks.afterCreate(created, { req });
-      }
+      await this.hooks.executeAfterCreate(resourceType, created, { req, storage: this.storage });
 
       return {
         status: 201,
@@ -202,19 +223,14 @@ export class Atomic {
         return { status: 404, body: JSON.stringify({ error: 'Resource not found' }) };
       }
 
-      // Apply before hooks
-      let resource = body;
-      if (resourceDef.hooks?.beforeUpdate) {
-        resource = await resourceDef.hooks.beforeUpdate(resource, previous, { req });
-      }
+      // Apply hooks
+      let resource = await this.hooks.executeBeforeUpdate(resourceType, body, previous, { req, storage: this.storage });
 
       // Update resource
       const updated = await this.storage.update(resourceType, id, resource);
 
       // Apply after hooks
-      if (resourceDef.hooks?.afterUpdate) {
-        await resourceDef.hooks.afterUpdate(updated, previous, { req });
-      }
+      await this.hooks.executeAfterUpdate(resourceType, updated, previous, { req, storage: this.storage });
 
       return {
         status: 200,
@@ -242,18 +258,14 @@ export class Atomic {
         return { status: 404, body: JSON.stringify({ error: 'Resource not found' }) };
       }
 
-      // Apply before hooks
-      if (resourceDef.hooks?.beforeDelete) {
-        await resourceDef.hooks.beforeDelete(resource, { req });
-      }
+      // Apply hooks
+      await this.hooks.executeBeforeDelete(resourceType, resource, { req, storage: this.storage });
 
       // Delete resource
       await this.storage.delete(resourceType, id);
 
       // Apply after hooks
-      if (resourceDef.hooks?.afterDelete) {
-        await resourceDef.hooks.afterDelete(resource, { req });
-      }
+      await this.hooks.executeAfterDelete(resourceType, resource, { req, storage: this.storage });
 
       return { status: 204 };
     } catch (error) {
@@ -383,6 +395,10 @@ export class Atomic {
     this.middleware.use(middleware);
   }
 
+  registerHook(hook) {
+    this.hooks.register(hook);
+  }
+
   async autoload(basePath) {
     if (!this.config.autoload.enabled) {
       return;
@@ -404,7 +420,7 @@ export class Atomic {
       }
     }
 
-    const loader = new FilesystemLoader(basePath);
+    const loader = new FilesystemLoader(basePath, this.config.autoload.paths);
     const components = await loader.loadAll();
 
     // Register discovered resources
@@ -420,6 +436,11 @@ export class Atomic {
     // Apply discovered middleware
     for (const middleware of components.middleware) {
       this.use(middleware);
+    }
+
+    // Register discovered hooks
+    for (const hook of components.hooks) {
+      this.registerHook(hook);
     }
 
     // Register implementation guides
@@ -458,12 +479,25 @@ export class Atomic {
     }
   }
 
-  async start(port = 3000, options = {}) {
+  async start(options = {}) {
+    // Load FHIR packages if enabled
+    if (options.packages !== false && this.config.packages.enabled) {
+      await this.packageManager.loadPackages();
+      
+      // Make package resources available to validator
+      if (this.packageManager.loaded) {
+        for (const [url, profile] of this.packageManager.profiles) {
+          this.validator.registerProfile(url, profile);
+        }
+      }
+    }
+    
     // Autoload components if enabled
     if (options.autoload !== false && this.config.autoload.enabled) {
       await this.autoload(options.basePath);
     }
 
+    const port = options.port || this.config.server.port;
     const server = Bun.serve({
       port,
       fetch: async (req) => {
@@ -491,6 +525,9 @@ export class Atomic {
       }
     });
 
+    this.config.server.port = port; // Update config with actual port
+    this.config.server.url = `http://localhost:${port}`; // Update URL with actual port
+    
     console.log(`🚀 Atomic FHIR Server running at http://localhost:${port}`);
     console.log(`📋 Metadata available at http://localhost:${port}/metadata`);
     

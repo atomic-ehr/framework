@@ -41,6 +41,7 @@ const app = new Atomic({
   server: {
     name: '${name}',
     version: '0.1.0',
+    port: 3000,
     url: 'http://localhost:3000'
   },
   storage: {
@@ -48,14 +49,18 @@ const app = new Atomic({
     config: {
       database: './data.db'
     }
-  },
-  // Auto-discovery is enabled by default!
-  // Resources in ./resources/, operations in ./operations/, 
-  // and middleware in ./middleware/ will be automatically loaded
+  }
+  // Autoload is enabled by default!
+  // No need to configure unless you want custom paths
 });
 
-// Start server - components will be auto-discovered
-app.start(3000);
+// Start server
+// Components are auto-discovered from:
+// - ./resources/    (FHIR resources)
+// - ./operations/   (FHIR operations)
+// - ./middleware/   (HTTP middleware)
+// - ./packages/     (FHIR IG packages)
+app.start();
 `;
   
   await writeFile(join(projectPath, 'server.js'), serverCode);
@@ -66,6 +71,7 @@ app.start(3000);
     name: '${name}',
     version: '0.1.0',
     fhirVersion: '4.0.1',
+    port: process.env.PORT || 3000,
     url: process.env.BASE_URL || 'http://localhost:3000'
   },
   storage: {

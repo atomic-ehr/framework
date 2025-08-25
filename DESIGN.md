@@ -102,24 +102,14 @@ export default defineResource({
   // Auto-loaded from structure-definition.json
   structureDefinition: './structure-definition.json',
   
-  // Lifecycle hooks
-  hooks: {
-    beforeCreate: async (resource, context) => {
-      // Pre-creation logic
-      resource.identifier = await generateMRN();
-      return resource;
-    },
-    
-    afterCreate: async (resource, context) => {
-      // Post-creation logic
-      await notifyHIE(resource);
-    },
-    
-    beforeUpdate: async (resource, previous, context) => {
-      // Validation or transformation
-      await validateInsurance(resource);
-      return resource;
-    }
+  // Resource capabilities (hooks are now in separate files)
+  capabilities: {
+    create: true,
+    read: true,
+    update: true,
+    delete: true,
+    search: true,
+    history: true
   },
   
   // Custom search parameters
@@ -261,7 +251,92 @@ export default defineMiddleware({
 });
 ```
 
-### 4. Storage Adapter API
+### 4. Hooks System (Separated Lifecycle Management)
+
+The hooks system provides separated lifecycle event handling, allowing hooks to be defined independently from resources and applied globally, to specific resources, or to groups of resources.
+
+```javascript
+// hooks/timestamps.js
+import { defineHook } from '@atomic/core';
+
+// Global hook - applies to all resources
+export default defineHook({
+  name: 'add-timestamps',
+  type: 'beforeCreate',
+  resources: '*',  // Apply to all resources
+  priority: 10,    // Higher priority executes first
+  
+  async handler(resource, context) {
+    resource.meta = resource.meta || {};
+    resource.meta.lastUpdated = new Date().toISOString();
+    return resource;  // Return modified resource for 'before' hooks
+  }
+});
+```
+
+```javascript
+// hooks/patient-validation.js
+// Resource-specific hook
+export default defineHook({
+  name: 'patient-mrn',
+  type: 'beforeCreate',
+  resources: 'Patient',  // Only for Patient resources
+  
+  async handler(resource, context) {
+    if (!resource.identifier) {
+      resource.identifier = [{
+        system: 'http://example.org/mrn',
+        value: generateMRN()
+      }];
+    }
+    return resource;
+  }
+});
+```
+
+```javascript
+// hooks/clinical-audit.js
+// Multi-resource hook
+export default defineHook({
+  name: 'clinical-audit',
+  type: 'afterCreate',
+  resources: ['Observation', 'Condition', 'Procedure'],
+  
+  async handler(resource, context) {
+    await auditLog.create({
+      type: 'clinical-resource-created',
+      resource: `${resource.resourceType}/${resource.id}`,
+      user: context.req.user,
+      timestamp: new Date()
+    });
+  }
+});
+```
+
+#### Hook Types and Execution Order
+
+1. **Hook Types**:
+   - `beforeCreate` / `afterCreate`
+   - `beforeUpdate` / `afterUpdate`
+   - `beforeDelete` / `afterDelete`
+   - `beforeValidate` / `afterValidate`
+   - `beforeRead` / `afterRead`
+   - `beforeSearch` / `afterSearch`
+
+2. **Execution Order**:
+   - Global hooks execute first (`resources: '*'`)
+   - Resource-specific hooks execute next
+   - Within each group, hooks execute by priority (highest first)
+   - 'before' hooks can modify and return the resource
+   - 'after' hooks are for side effects only
+
+3. **Context Object**:
+   - `req`: HTTP request object
+   - `storage`: Storage manager instance
+   - `user`: Authenticated user (if available)
+   - Custom context properties
+
+### 5. Storage Adapter API
 
 ```javascript
 // storage/adapters/custom.js
@@ -405,6 +480,23 @@ export default {
     version: '1.0.0',
     fhirVersion: '4.0.1',
     url: process.env.BASE_URL || 'http://localhost:3000'
+  },
+  
+  // Autoload is enabled by default!
+  // Set to false to disable, or customize paths:
+  autoload: {
+    enabled: true, // Default: true
+    paths: {
+      resources: 'resources',
+      operations: 'operations',
+      middleware: 'middleware'
+    }
+  },
+  
+  // Package loading is enabled by default!
+  packages: {
+    enabled: true, // Default: true
+    path: 'packages'
   },
   
   // Storage configuration

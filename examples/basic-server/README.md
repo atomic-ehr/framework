@@ -90,20 +90,27 @@ curl -X POST http://localhost:3000/Observation \
 
 ```
 basic-server/
-├── server.js           # Main server configuration
-├── resources/         # Resource definitions
-│   ├── Patient.js    # Patient resource with hooks
-│   └── Observation.js # Observation resource with hooks
-├── operations/        # Custom operations
-│   └── match.js      # Patient matching operation
-└── middleware/        # Middleware
-    └── audit.js      # Audit logging middleware
+├── index.js           # Entry point
+├── src/               # Source code directory
+│   ├── server.js      # Server configuration
+│   ├── resources/     # Resource definitions
+│   │   ├── Patient.js
+│   │   └── Observation.js
+│   ├── operations/    # Custom operations
+│   │   └── match.js   # Patient matching operation
+│   ├── middleware/    # Middleware
+│   │   └── audit.js   # Audit logging
+│   └── hooks/         # Lifecycle hooks
+│       ├── patient-hooks.js     # Patient-specific hooks
+│       └── observation-hooks.js # Observation-specific hooks
+└── package.json       # Project dependencies
 ```
 
 ## Key Concepts Demonstrated
 
-1. **Resource Hooks**: Lifecycle hooks for validation and side effects
-2. **Custom Operations**: Implementation of FHIR operations like $match
-3. **Middleware**: Cross-cutting concerns like audit logging
-4. **Validation**: Custom validators for business rules
-5. **Search Parameters**: Custom search capabilities
+1. **Resource Definitions**: Clean resource definitions without inline hooks
+2. **Separated Hooks**: Lifecycle hooks in dedicated folder for better organization
+3. **Custom Operations**: Implementation of FHIR operations like $match
+4. **Middleware**: Cross-cutting concerns like audit logging
+5. **Validation**: Custom validators for business rules
+6. **Search Parameters**: Custom search capabilities

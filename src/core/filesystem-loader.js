@@ -2,13 +2,21 @@ import { readdir } from 'fs/promises';
 import { join, basename } from 'path';
 
 export class FilesystemLoader {
-  constructor(basePath) {
+  constructor(basePath, paths = {}) {
     this.basePath = basePath;
+    this.paths = {
+      resources: 'resources',
+      operations: 'operations',
+      middleware: 'middleware',
+      hooks: 'hooks',
+      implementationGuides: 'implementation-guides',
+      ...paths
+    };
   }
 
-  async loadResources(dirPath = 'resources') {
+  async loadResources(dirPath) {
     const resources = new Map();
-    const fullPath = join(this.basePath, dirPath);
+    const fullPath = join(this.basePath, dirPath || this.paths.resources);
     
     try {
       const files = await this.getJsFiles(fullPath);
@@ -36,9 +44,9 @@ export class FilesystemLoader {
     return resources;
   }
 
-  async loadOperations(dirPath = 'operations') {
+  async loadOperations(dirPath) {
     const operations = [];
-    const fullPath = join(this.basePath, dirPath);
+    const fullPath = join(this.basePath, dirPath || this.paths.operations);
     
     try {
       const files = await this.getJsFiles(fullPath);
@@ -65,9 +73,9 @@ export class FilesystemLoader {
     return operations;
   }
 
-  async loadMiddleware(dirPath = 'middleware') {
+  async loadMiddleware(dirPath) {
     const middleware = [];
-    const fullPath = join(this.basePath, dirPath);
+    const fullPath = join(this.basePath, dirPath || this.paths.middleware);
     
     try {
       const files = await this.getJsFiles(fullPath);
@@ -94,9 +102,44 @@ export class FilesystemLoader {
     return middleware;
   }
 
-  async loadImplementationGuides(dirPath = 'implementation-guides') {
+  async loadHooks(dirPath) {
+    const hooks = [];
+    const fullPath = join(this.basePath, dirPath || this.paths.hooks);
+    
+    try {
+      const files = await this.getJsFiles(fullPath);
+      
+      for (const file of files) {
+        try {
+          const module = await import(file);
+          const hook = module.default;
+          
+          if (hook) {
+            // Support both single hook and array of hooks
+            if (Array.isArray(hook)) {
+              hooks.push(...hook);
+            } else {
+              hooks.push(hook);
+            }
+            const hookName = hook.name || (Array.isArray(hook) ? `${hook.length} hooks` : 'unnamed');
+            console.log(`🪝 Loaded hook: ${hookName}`);
+          }
+        } catch (error) {
+          console.error(`Failed to load hook from ${file}:`, error.message);
+        }
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`Error loading hooks:`, error.message);
+      }
+    }
+    
+    return hooks;
+  }
+
+  async loadImplementationGuides(dirPath) {
     const igs = [];
-    const fullPath = join(this.basePath, dirPath);
+    const fullPath = join(this.basePath, dirPath || this.paths.implementationGuides);
     
     try {
       const dirs = await readdir(fullPath, { withFileTypes: true });
@@ -167,10 +210,11 @@ export class FilesystemLoader {
   async loadAll() {
     console.log('🔍 Auto-discovering FHIR components...\n');
     
-    const [resources, operations, middleware, implementationGuides] = await Promise.all([
+    const [resources, operations, middleware, hooks, implementationGuides] = await Promise.all([
       this.loadResources(),
       this.loadOperations(),
       this.loadMiddleware(),
+      this.loadHooks(),
       this.loadImplementationGuides()
     ]);
     
@@ -178,12 +222,14 @@ export class FilesystemLoader {
     console.log(`   Resources: ${resources.size}`);
     console.log(`   Operations: ${operations.length}`);
     console.log(`   Middleware: ${middleware.length}`);
+    console.log(`   Hooks: ${hooks.length}`);
     console.log(`   Implementation Guides: ${implementationGuides.length}\n`);
     
     return {
       resources,
       operations,
       middleware,
+      hooks,
       implementationGuides
     };
   }
