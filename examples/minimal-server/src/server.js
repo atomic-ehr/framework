@@ -1,4 +1,4 @@
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 // Minimal configuration - autoload is enabled by default!
 const app = new Atomic({
@@ -14,7 +14,7 @@ const app = new Atomic({
 // 2. Operations from ./src/operations/
 // 3. Middleware from ./src/middleware/
 // 4. Hooks from ./src/hooks/
-// 5. Packages from ./packages/ (default location)
+// 5. FHIR IG packages from ./packages/ (enabled by default)
 console.log("---------------------");
 
 app.start();

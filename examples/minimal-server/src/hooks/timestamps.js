@@ -1,4 +1,4 @@
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
 // Global hook that adds timestamps to all resources
 export default defineHook({

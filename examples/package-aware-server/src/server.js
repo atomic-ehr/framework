@@ -1,4 +1,4 @@
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 // Server that uses FHIR packages
 const app = new Atomic({
@@ -7,12 +7,6 @@ const app = new Atomic({
     version: '0.1.0',
     port: 3004,
     url: 'http://localhost:3004'
-  },
-  storage: {
-    adapter: 'sqlite',
-    config: {
-      database: './package-aware.db'
-    }
   }
   // Autoload is enabled by default and uses src/ folders
   // Packages are enabled by default at ./packages/

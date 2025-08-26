@@ -1,4 +1,4 @@
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
 // Add US Core race and ethnicity extensions
 const addRaceEthnicityExtensions = defineHook({

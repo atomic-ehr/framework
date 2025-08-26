@@ -1,4 +1,4 @@
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
 // US Core Vital Signs profile codes
 const VITAL_SIGNS_CODES = {

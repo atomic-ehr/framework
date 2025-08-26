@@ -1,4 +1,4 @@
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 // Create and configure the application
 const app = new Atomic({

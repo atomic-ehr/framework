@@ -2,13 +2,12 @@
   "name": "manual-fhir-server",
   "version": "0.1.0",
   "type": "module",
-  "main": "index.js",
   "scripts": {
-    "start": "bun run index.js",
-    "dev": "bun --watch index.js",
+    "start": "bun run src/server.js",
+    "dev": "bun --watch src/server.js",
     "test": "bun test"
   },
   "dependencies": {
-    "@atomic/framework": "file:../../"
+    "@atomic-fhir/core": "workspace:*"
   }
 }

@@ -1,0 +1,14 @@
+{
+  "name": "r4-core-server",
+  "version": "1.0.0",
+  "description": "FHIR R4 Core server with automatic package download",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.js",
+    "start": "bun src/server.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@atomic-fhir/core": "workspace:*"
+  }
+}

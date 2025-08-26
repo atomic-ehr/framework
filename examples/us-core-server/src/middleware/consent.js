@@ -1,4 +1,4 @@
-import { defineMiddleware } from '@atomic/framework';
+import { defineMiddleware } from '@atomic-fhir/core';
 
 // Consent-based access control middleware
 // Checks if user has appropriate consent to access patient data

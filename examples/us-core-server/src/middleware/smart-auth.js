@@ -1,4 +1,4 @@
-import { defineMiddleware } from '@atomic/framework';
+import { defineMiddleware } from '@atomic-fhir/core';
 
 // Simple SMART on FHIR authentication middleware
 // In production, integrate with a real OAuth2/OIDC provider

@@ -1,4 +1,4 @@
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
 // Set default values for observations
 export default defineHook({

@@ -1,4 +1,4 @@
-import { defineResource } from '@atomic/framework';
+import { defineResource } from '@atomic-fhir/core';
 
 // This file will be auto-discovered because it's in the resources/ folder
 // and exports a resource definition as default

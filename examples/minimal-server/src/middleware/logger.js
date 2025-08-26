@@ -1,4 +1,4 @@
-import { defineMiddleware } from '@atomic/framework';
+import { defineMiddleware } from '@atomic-fhir/core';
 
 // This middleware will be auto-discovered and applied globally
 

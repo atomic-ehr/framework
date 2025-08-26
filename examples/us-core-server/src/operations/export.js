@@ -1,4 +1,4 @@
-import { defineOperation } from '@atomic/framework';
+import { defineOperation } from '@atomic-fhir/core';
 import { randomUUID } from 'crypto';
 
 // In-memory export job tracking (in production, use persistent storage)

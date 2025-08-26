@@ -28,6 +28,8 @@ fhir-framework/
 ├── examples/                  # Example servers
 │   ├── minimal-server/        # 3-line server
 │   ├── basic-server/          # Basic CRUD
+│   ├── custom-handlers-server/ # Custom resource handlers
+│   ├── r4-core-server/        # Auto-download R4 Core package (NEW!)
 │   ├── us-core-server/        # US Core IG
 │   ├── package-aware-server/  # Using packages
 │   └── manual-server/         # Without autoload
@@ -248,6 +250,34 @@ export default defineResource({
     // read, search, history remain true
   }
 });
+
+// Custom handlers for complete control (NEW!)
+export default defineResource({
+  resourceType: 'Patient',
+  handlers: {
+    // Override any CRUD operation with custom logic
+    async create(req, context) {
+      const { storage, hooks, validator, config } = context;
+      const patient = await req.json();
+      
+      // Custom business logic here
+      // - Generate identifiers
+      // - Apply business rules
+      // - Integrate with external systems
+      
+      return {
+        status: 201,
+        headers: { 'Content-Type': 'application/fhir+json' },
+        body: created  // JS objects are auto-converted to JSON
+      };
+    },
+    
+    async read(id, req, context) { /* custom read */ },
+    async update(id, req, context) { /* custom update */ },
+    async delete(id, req, context) { /* custom delete */ },
+    async search(req, context) { /* custom search */ }
+  }
+});
 ```
 
 #### 4. **Hooks/Lifecycle Events**
@@ -354,7 +384,12 @@ const app = new Atomic({
   },
   packages: {
     enabled: true,           // Default true
-    path: 'packages'
+    path: 'packages',        // Where packages are stored
+    list: [                  // Packages to auto-download (NEW!)
+      'hl7.fhir.r4.core@4.0.1',
+      'hl7.fhir.us.core@5.0.1'
+    ],
+    defaultRegistry: 'https://get-ig.org'  // Package registry
   }
 });
 ```
@@ -400,6 +435,230 @@ bun test tests/e2e/*.test.js
 3. **Audit Logging**: FHIR AuditEvent resources
 4. **Input Validation**: StructureDefinition-based
 5. **Rate Limiting**: Middleware-based throttling
+
+## Custom Resource Handlers (NEW!)
+
+### Overview
+
+Custom handlers allow complete control over CRUD operations for any resource type. Instead of using the default storage-based implementation, you can implement business logic, integrate with external systems, or enforce complex rules.
+
+### Handler Signature
+
+Each handler receives:
+- **Request parameters**: The incoming request (and ID for read/update/delete)
+- **Context object**: Access to framework components
+
+**Note**: The `body` field in the response can be a JavaScript object - it will be automatically converted to JSON.
+
+```javascript
+export default defineResource({
+  resourceType: 'Patient',
+  handlers: {
+    // Create handler
+    async create(req, context) {
+      const { storage, hooks, validator, config } = context;
+      // Return { status, headers?, body }
+      // body can be JS object or string
+    },
+    
+    // Read handler
+    async read(id, req, context) {
+      // Return { status, headers?, body }
+    },
+    
+    // Update handler  
+    async update(id, req, context) {
+      // Return { status, headers?, body }
+    },
+    
+    // Delete handler
+    async delete(id, req, context) {
+      // Return { status, headers?, body }
+    },
+    
+    // Search handler
+    async search(req, context) {
+      // Return { status, headers?, body }
+    }
+  }
+});
+```
+
+### Use Cases
+
+1. **Business Rule Enforcement**
+   - Validate complex business logic
+   - Prevent invalid state transitions
+   - Enforce organizational policies
+
+2. **Data Enrichment**
+   - Auto-generate identifiers (MRN, encounter IDs)
+   - Calculate derived values
+   - Add metadata and audit information
+
+3. **External System Integration**
+   - Call legacy APIs
+   - Synchronize with external databases
+   - Transform data formats
+
+4. **Performance Optimization**
+   - Implement custom caching
+   - Aggregate data for analytics
+   - Optimize search queries
+
+### Example: Patient with MRN Generation
+
+```javascript
+export default defineResource({
+  resourceType: 'Patient',
+  handlers: {
+    async create(req, context) {
+      const { storage, hooks, config } = context;
+      const patient = await req.json();
+      
+      // Generate Medical Record Number
+      const mrn = `MRN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      patient.identifier = patient.identifier || [];
+      patient.identifier.push({
+        system: 'http://hospital.example.org/mrn',
+        value: mrn,
+        use: 'official'
+      });
+      
+      // Still use hooks if desired
+      const processed = await hooks.executeBeforeCreate('Patient', patient, { req, storage });
+      
+      // Store using standard storage
+      const created = await storage.create('Patient', processed);
+      
+      // After hooks
+      await hooks.executeAfterCreate('Patient', created, { req, storage });
+      
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/fhir+json',
+          'Location': `${config.server.url}/Patient/${created.id}`
+        },
+        body: created  // Auto-converted to JSON
+      };
+    }
+  }
+});
+```
+
+### Integration with Hooks
+
+Custom handlers can still use the hooks system:
+- Call `hooks.executeBeforeCreate()`, `hooks.executeAfterCreate()`, etc.
+- Allows mixing custom logic with reusable hooks
+- Maintains consistency across resources
+
+### Best Practices
+
+1. **Return proper HTTP responses** - Include status, headers, and body
+2. **Handle errors gracefully** - Return OperationOutcome for FHIR errors
+3. **Maintain FHIR compliance** - Follow FHIR REST API specifications
+4. **Document custom behavior** - Make non-standard behavior clear
+5. **Consider reusability** - Extract common logic into hooks when possible
+
+## FHIR Package Management (NEW!)
+
+### Automatic Package Download
+
+The framework can automatically download FHIR Implementation Guide packages from registries:
+
+```javascript
+const app = new Atomic({
+  packages: {
+    enabled: true,
+    path: 'packages',
+    list: [
+      'hl7.fhir.r4.core@4.0.1',     // FHIR R4 Core
+      'hl7.fhir.us.core@5.0.1',     // US Core
+      'hl7.fhir.uv.ips@1.0.0'       // International Patient Summary
+    ],
+    defaultRegistry: 'https://get-ig.org'
+  }
+});
+```
+
+### How It Works
+
+1. **On Server Start**: Checks if packages need to be downloaded
+2. **Registry API**: Uses npm-style registry API (compatible with get-ig.org)
+3. **Download**: Fetches `.tgz` packages to `packages/` directory
+4. **Loading**: Extracts and indexes all FHIR resources
+5. **Validation**: Makes profiles available to the validator
+
+### Package Contents
+
+Downloaded packages include:
+- **StructureDefinitions**: Resource and data type definitions
+- **ValueSets**: Terminology value sets for validation
+- **CodeSystems**: Code system definitions
+- **SearchParameters**: Custom search parameters
+- **OperationDefinitions**: Custom operations
+
+### Registry Support
+
+Default registry: `https://get-ig.org`
+
+The framework converts this to the npm-compatible endpoint:
+- Metadata: `https://fs.get-ig.org/pkgs/{package-name}`
+- Download: Via tarball URL from metadata
+
+### Benefits
+
+1. **Zero Manual Setup**: No need to manually download packages
+2. **Version Control**: Specify exact versions for reproducibility
+3. **Automatic Updates**: Just change version in config
+4. **Official Registry**: Uses the official FHIR package registry
+5. **Cached Locally**: Downloaded once, reused across restarts
+
+### Important Notes
+
+- **First Run**: Packages are downloaded on the first server start
+- **Cache Location**: Downloaded packages are stored as `.tgz` files in the `packages/` directory
+- **Version Syntax**: Use npm-style version syntax (e.g., `package@1.0.0`)
+- **Network Requirements**: Requires internet access to download packages initially
+- **Fallback**: If the primary registry fails, the framework tries alternative endpoints
+
+### Common Packages
+
+```javascript
+// Commonly used FHIR packages
+packages: {
+  list: [
+    // Core specifications
+    'hl7.fhir.r4.core@4.0.1',        // FHIR R4 Core
+    'hl7.fhir.r4b.core@4.3.0',       // FHIR R4B Core
+    'hl7.fhir.r5.core@5.0.0',        // FHIR R5 Core
+    
+    // Regional profiles
+    'hl7.fhir.us.core@5.0.1',        // US Core
+    'hl7.fhir.ca.baseline@1.0.0',    // Canadian Baseline
+    'hl7.fhir.au.base@4.1.0',        // Australian Base
+    
+    // International specifications
+    'hl7.fhir.uv.ips@1.0.0',         // International Patient Summary
+    'hl7.fhir.uv.sdc@3.0.0',         // Structured Data Capture
+    'hl7.fhir.uv.subscriptions-backport@1.0.0'  // Subscriptions
+  ]
+}
+```
+
+### Troubleshooting
+
+**Package download fails:**
+- Check network connectivity
+- Verify package name and version exist
+- Try downloading manually and placing in `packages/` directory
+
+**Package not loading:**
+- Ensure the `.tgz` file is not corrupted
+- Check console logs for specific error messages
+- Verify package structure (should contain `package.json` and FHIR resources)
 
 ## Hooks System Architecture
 

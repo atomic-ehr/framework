@@ -1,4 +1,4 @@
-import { defineResource } from '@atomic/framework';
+import { defineResource } from '@atomic-fhir/core';
 
 export default defineResource({
   resourceType: 'Observation',

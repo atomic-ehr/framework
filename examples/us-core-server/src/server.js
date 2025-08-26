@@ -1,4 +1,4 @@
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 // Create US Core compliant server
 const app = new Atomic({

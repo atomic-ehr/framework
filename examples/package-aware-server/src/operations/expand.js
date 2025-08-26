@@ -1,4 +1,4 @@
-import { defineOperation } from '@atomic/framework';
+import { defineOperation } from '@atomic-fhir/core';
 
 // ValueSet expansion operation that uses loaded packages
 export default defineOperation({

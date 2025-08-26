@@ -1,0 +1,14 @@
+{
+  "name": "custom-handlers-server",
+  "version": "1.0.0",
+  "description": "FHIR server demonstrating custom resource handlers",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.js",
+    "start": "bun src/server.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@atomic-fhir/core": "workspace:*"
+  }
+}

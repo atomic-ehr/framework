@@ -1,4 +1,4 @@
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
 // NPI validation using Luhn algorithm
 function validateNPI(npi) {

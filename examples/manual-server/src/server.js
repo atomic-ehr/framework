@@ -1,4 +1,4 @@
-import { Atomic, defineResource, defineOperation, defineMiddleware } from '@atomic/framework';
+import { Atomic, defineResource, defineOperation, defineMiddleware } from '@atomic-fhir/core';
 
 // Example of manual registration (disabling autoload)
 const app = new Atomic({

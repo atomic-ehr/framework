@@ -1,0 +1,30 @@
+# Source files
+tsconfig.json
+*.test.js
+**/__tests__/
+
+# Development files
+.eslintrc
+.prettierrc
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts (if using TypeScript build)
+*.tsbuildinfo

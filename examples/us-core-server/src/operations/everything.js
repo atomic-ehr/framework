@@ -1,4 +1,4 @@
-import { defineOperation } from '@atomic/framework';
+import { defineOperation } from '@atomic-fhir/core';
 
 export default defineOperation({
   name: 'everything',

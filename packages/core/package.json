@@ -1,0 +1,58 @@
+{
+  "name": "@atomic-fhir/core",
+  "version": "0.1.0",
+  "description": "Core framework for Atomic FHIR - a FHIR-native web framework",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./atomic": "./src/core/atomic.js",
+    "./resource": "./src/core/resource.js",
+    "./operation": "./src/core/operation.js",
+    "./middleware": "./src/core/middleware.js",
+    "./hook": "./src/core/define-hook.js",
+    "./storage": "./src/storage/storage-manager.js",
+    "./adapters/sqlite": "./src/storage/sqlite-adapter.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "fhir",
+    "healthcare",
+    "framework",
+    "atomic",
+    "bun"
+  ],
+  "author": "Atomic FHIR Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atomic-fhir/framework.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/atomic-fhir/framework/issues"
+  },
+  "homepage": "https://github.com/atomic-fhir/framework#readme",
+  "dependencies": {
+    "tar": "^6.2.0",
+    "node-fetch": "^3.3.2"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "bun test",
+    "lint": "eslint src",
+    "format": "prettier --write src",
+    "build": "echo 'No build step required for ESM modules'",
+    "prepublishOnly": "bun test"
+  }
+}

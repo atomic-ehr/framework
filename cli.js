@@ -25,7 +25,7 @@ async function createProject(name) {
       test: 'bun test'
     },
     dependencies: {
-      '@atomic/framework': 'file:../../'
+      '@atomic-fhir/core': '^0.1.0'
     }
   };
   
@@ -35,7 +35,7 @@ async function createProject(name) {
   );
   
   // Create server.js
-  const serverCode = `import { Atomic } from '@atomic/framework';
+  const serverCode = `import { Atomic } from '@atomic-fhir/core';
 
 const app = new Atomic({
   server: {
@@ -93,7 +93,7 @@ app.start();
   await writeFile(join(projectPath, 'atomic.config.js'), configCode);
   
   // Create example Patient resource
-  const exampleResource = `import { defineResource } from '@atomic/framework';
+  const exampleResource = `import { defineResource } from '@atomic-fhir/core';
 
 export default defineResource({
   resourceType: 'Patient',
@@ -123,7 +123,7 @@ export default defineResource({
 async function generateResource(name) {
   const resourcePath = join(process.cwd(), 'resources', `${name}.js`);
   
-  const resourceCode = `import { defineResource } from '@atomic/framework';
+  const resourceCode = `import { defineResource } from '@atomic-fhir/core';
 
 export default defineResource({
   resourceType: '${name}',
@@ -175,7 +175,7 @@ async function generateOperation(name) {
   
   const operationPath = join(process.cwd(), 'operations', `${opName.replace('$', '')}.js`);
   
-  const operationCode = `import { defineOperation } from '@atomic/framework';
+  const operationCode = `import { defineOperation } from '@atomic-fhir/core';
 
 export default defineOperation({
   name: '${opName.replace('$', '')}',

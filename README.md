@@ -9,6 +9,8 @@ A FHIR-native web framework for JavaScript/Bun that treats FHIR resources as fir
 - 🔍 **Auto-Discovery**: Automatically finds and registers resources, operations, middleware, and hooks
 - 🪝 **Flexible Hooks**: Separated lifecycle hooks with global, resource-specific, or multi-resource targeting
 - 📋 **Resource-Centric**: Define resources with configuration and capabilities
+- 🎯 **Custom Handlers**: Override any CRUD operation with custom business logic
+- 📦 **Package Management**: Auto-download FHIR packages from official registry (NEW!)
 - 🔧 **Operations**: First-class support for FHIR operations ($match, $everything, etc.)
 - 🛡️ **Middleware**: Flexible middleware for auth, audit, consent
 - 💾 **Storage Adapters**: SQLite by default, extensible to PostgreSQL, MongoDB
@@ -171,6 +173,137 @@ export default defineHook({
 - `beforeRead` / `afterRead`
 - `beforeSearch` / `afterSearch`
 
+## Package Management (NEW!)
+
+The framework can automatically download and load FHIR Implementation Guide packages from official registries. Package management is **enabled by default** - just specify which packages you want.
+
+### Quick Start
+
+```javascript
+const app = new Atomic({
+  packages: {
+    list: [
+      'hl7.fhir.r4.core@4.0.1',     // FHIR R4 Core
+      'hl7.fhir.us.core@5.0.1',     // US Core  
+      'hl7.fhir.uv.ips@1.0.0'       // International Patient Summary
+    ]
+    // enabled: true by default
+    // path: 'packages' by default
+    // defaultRegistry: 'https://get-ig.org' by default
+  }
+});
+```
+
+### Key Features
+
+- **🚀 Automatic Download**: Packages are downloaded on first server start
+- **📌 Version Control**: Specify exact versions for reproducibility
+- **🌐 Official Registry**: Uses the FHIR package registry at get-ig.org
+- **💾 Local Cache**: Downloaded packages are cached in `packages/` directory
+- **✨ Zero Setup**: No manual download or configuration required
+- **🔄 Smart Caching**: Only downloads if not already present
+- **🎯 Auto-Registration**: Base resources from packages are automatically registered (NEW!)
+
+### Auto-Registration of Resources (NEW!)
+
+When you load packages like `hl7.fhir.r4.core`, Atomic automatically:
+1. Identifies all base resource definitions (Patient, Observation, etc.)
+2. Registers them as fully-functional resources with all CRUD operations
+3. Configures their search parameters from the package
+4. Makes them immediately available via REST API
+
+This means with just one package, your server instantly supports all FHIR resources:
+
+```javascript
+// This single configuration gives you ALL 140+ R4 resources!
+const app = new Atomic({
+  packages: {
+    list: ['hl7.fhir.r4.core@4.0.1']
+  }
+});
+
+// Now you can immediately use:
+// GET/POST /Patient
+// GET/POST /Observation
+// GET/POST /Encounter
+// ... and all other R4 resources!
+```
+
+### What's Included in Packages
+
+Each FHIR package can contain:
+- **StructureDefinitions**: Resource and data type profiles for validation
+- **ValueSets**: Coded value sets for terminology binding
+- **CodeSystems**: Code system definitions
+- **SearchParameters**: Custom search parameter definitions
+- **OperationDefinitions**: Custom operation definitions
+- **ConceptMaps**: Mappings between code systems
+- **NamingSystem**: Identifier system definitions
+
+### Common Use Cases
+
+```javascript
+// Basic FHIR server with R4 Core
+packages: {
+  list: ['hl7.fhir.r4.core@4.0.1']
+}
+
+// US-based healthcare application
+packages: {
+  list: [
+    'hl7.fhir.r4.core@4.0.1',
+    'hl7.fhir.us.core@5.0.1',
+    'hl7.fhir.us.davinci-deqm@3.0.0'
+  ]
+}
+
+// International Patient Summary
+packages: {
+  list: [
+    'hl7.fhir.r4.core@4.0.1',
+    'hl7.fhir.uv.ips@1.0.0'
+  ]
+}
+```
+
+### How It Works
+
+1. **Server Start**: Framework checks if packages need downloading
+2. **Registry Query**: Fetches package metadata from registry
+3. **Download**: Downloads `.tgz` files to `packages/` directory
+4. **Loading**: Extracts and indexes all FHIR resources
+5. **Validation**: Makes profiles available for resource validation
+
+### Manual Package Management
+
+If you prefer manual control:
+
+```bash
+# Download manually using npm
+npm install --registry https://fs.get-ig.org/pkgs hl7.fhir.r4.core
+
+# Move to packages directory
+mv node_modules/hl7.fhir.r4.core/*.tgz packages/
+
+# Or download from packages.fhir.org
+curl -o packages/hl7.fhir.r4.core.tgz \
+  https://packages.fhir.org/hl7.fhir.r4.core/4.0.1
+```
+
+### Troubleshooting
+
+**Package download fails?**
+- Check internet connectivity
+- Verify package name and version
+- Check if registry is accessible: https://get-ig.org
+- Try manual download as fallback
+
+**Package not loading?**
+- Check `packages/` directory for `.tgz` files
+- Verify file isn't corrupted
+- Check console logs for errors
+- Ensure package contains valid FHIR resources
+
 ## Configuration Options
 
 ### Disabling Auto-Discovery
@@ -262,6 +395,34 @@ A simple FHIR server with Patient and Observation resources, patient matching, a
 cd examples/basic-server
 bun run dev
 ```
+
+### Custom Handlers Server
+Demonstrates custom resource handlers with business logic, auto-generated identifiers, and complex validation rules.
+
+```bash
+cd examples/custom-handlers-server
+bun run dev
+```
+
+Features:
+- Patient resource with auto-generated MRN
+- Observation with automatic vital sign interpretation
+- Encounter with business rule enforcement
+- Custom search with aggregation statistics
+
+### R4 Core Server (NEW!)
+FHIR R4 Core server with automatic package download from registry.
+
+```bash
+cd examples/r4-core-server
+bun run dev
+```
+
+Features:
+- Automatic download of `hl7.fhir.r4.core` package
+- Full R4 Core validation
+- No manual package setup required
+- Uses official FHIR package registry
 
 ### US Core Server
 A US Core Implementation Guide compliant server with:
@@ -365,6 +526,55 @@ export default defineResource({
   }
 });
 ```
+
+### Custom Resource Handlers (NEW!)
+
+Override any CRUD operation with custom business logic:
+
+```javascript
+// src/resources/Patient.js
+export default defineResource({
+  resourceType: 'Patient',
+  
+  handlers: {
+    // Custom create with MRN generation
+    async create(req, context) {
+      const { storage, hooks, config } = context;
+      const patient = await req.json();
+      
+      // Generate Medical Record Number
+      const mrn = `MRN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      patient.identifier = patient.identifier || [];
+      patient.identifier.push({
+        system: 'http://hospital.example.org/mrn',
+        value: mrn,
+        use: 'official'
+      });
+      
+      // Store and return
+      const created = await storage.create('Patient', patient);
+      
+      return {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/fhir+json',
+          'Location': `${config.server.url}/Patient/${created.id}`
+        },
+        body: created  // Auto-converted to JSON
+      };
+    },
+    
+    // Also available: read, update, delete, search
+  }
+});
+```
+
+Custom handlers are perfect for:
+- Enforcing business rules
+- Integrating with external systems
+- Auto-generating identifiers
+- Custom validation logic
+- Performance optimizations
 
 ### Operations
 FHIR operations are first-class citizens:

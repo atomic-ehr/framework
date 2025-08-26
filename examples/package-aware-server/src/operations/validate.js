@@ -1,4 +1,4 @@
-import { defineOperation } from '@atomic/framework';
+import { defineOperation } from '@atomic-fhir/core';
 
 // This operation uses loaded package resources
 export default defineOperation({

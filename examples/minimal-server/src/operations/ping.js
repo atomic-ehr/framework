@@ -1,4 +1,4 @@
-import { defineOperation } from '@atomic/framework';
+import { defineOperation } from '@atomic-fhir/core';
 
 // This operation will be auto-discovered and registered
 // Available at POST /$ping

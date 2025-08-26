@@ -1,24 +1,22 @@
-import { afterCreate, afterUpdate, afterDelete } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
-// Audit logging hooks
-const auditLog = (action) => async (resource, context) => {
-  const auditEntry = {
-    action,
-    resourceType: resource.resourceType,
-    resourceId: resource.id,
-    timestamp: new Date().toISOString(),
-    user: context.req?.headers?.['x-user-id'] || 'anonymous'
-  };
-  
-  console.log(`🔍 AUDIT: ${action} ${resource.resourceType}/${resource.id} by ${auditEntry.user}`);
-  
-  // In production, you would save this to an AuditEvent resource
-  // await context.storage.create('AuditEvent', auditEvent);
-};
-
-// Export multiple hooks as an array
-export default [
-  afterCreate('audit-create', auditLog('CREATE')),
-  afterUpdate('audit-update', auditLog('UPDATE')),
-  afterDelete('audit-delete', auditLog('DELETE'))
-];
+// Audit logging hook
+export default defineHook({
+  name: 'audit-log',
+  type: 'afterCreate', // You can create separate hooks for afterUpdate, afterDelete
+  resources: '*', // Apply to all resources
+  async handler(resource, context) {
+    const auditEntry = {
+      action: 'CREATE',
+      resourceType: resource.resourceType,
+      resourceId: resource.id,
+      timestamp: new Date().toISOString(),
+      user: context.req?.headers?.['x-user-id'] || 'anonymous'
+    };
+    
+    console.log(`🔍 AUDIT: CREATE ${resource.resourceType}/${resource.id} by ${auditEntry.user}`);
+    
+    // In production, you would save this to an AuditEvent resource
+    // await context.storage.create('AuditEvent', auditEvent);
+  }
+});
