@@ -21,28 +21,58 @@ export class CapabilityStatement {
       rest: [
         {
           mode: 'server',
-          resource: resources.map(([type, definition]) => ({
-            type,
-            interaction: [
-              { code: 'read' },
-              { code: 'create' },
-              { code: 'update' },
-              { code: 'delete' },
-              { code: 'search-type' }
-            ],
-            versioning: 'versioned',
-            readHistory: true,
-            updateCreate: false,
-            conditionalCreate: false,
-            conditionalRead: 'not-supported',
-            conditionalUpdate: false,
-            conditionalDelete: 'not-supported',
-            searchParam: Object.entries(definition.searches || {}).map(([name, search]) => ({
-              name,
-              type: search.type,
-              documentation: search.documentation
-            }))
-          })),
+          resource: resources.map(([type, definition]) => {
+            // Build interaction list based on capabilities
+            const interactions = [];
+            const caps = definition.capabilities || {};
+            
+            // Map capabilities to FHIR interaction codes
+            if (caps.read !== false) interactions.push({ code: 'read' });
+            if (caps.vread !== false) interactions.push({ code: 'vread' });
+            if (caps.update !== false) interactions.push({ code: 'update' });
+            if (caps['update-conditional']) interactions.push({ code: 'update-conditional' });
+            if (caps.patch) interactions.push({ code: 'patch' });
+            if (caps['patch-conditional']) interactions.push({ code: 'patch-conditional' });
+            if (caps.delete !== false) interactions.push({ code: 'delete' });
+            if (caps['delete-conditional-single']) interactions.push({ code: 'delete-conditional-single' });
+            if (caps['delete-conditional-multiple']) interactions.push({ code: 'delete-conditional-multiple' });
+            if (caps['delete-history']) interactions.push({ code: 'delete-history' });
+            if (caps['delete-history-version']) interactions.push({ code: 'delete-history-version' });
+            if (caps['history-instance'] !== false) interactions.push({ code: 'history-instance' });
+            if (caps['history-type'] !== false) interactions.push({ code: 'history-type' });
+            if (caps.create !== false) interactions.push({ code: 'create' });
+            if (caps['create-conditional']) interactions.push({ code: 'create-conditional' });
+            if (caps['search-type'] !== false) interactions.push({ code: 'search-type' });
+            
+            const resourceDef = {
+              type,
+              interaction: interactions,
+              versioning: 'versioned',
+              readHistory: caps['history-instance'] !== false,
+              updateCreate: false,  // Could be made configurable
+              conditionalCreate: caps['create-conditional'] ? 'true' : 'false',
+              conditionalRead: 'not-supported',  // Could add capability for this
+              conditionalUpdate: caps['update-conditional'] ? 'true' : 'false',
+              conditionalDelete: caps['delete-conditional-single'] || caps['delete-conditional-multiple'] 
+                ? (caps['delete-conditional-multiple'] ? 'multiple' : 'single')
+                : 'not-supported',
+              searchParam: Object.entries(definition.searches || {}).map(([name, search]) => ({
+                name,
+                type: search.type,
+                documentation: search.documentation
+              }))
+            };
+
+            // Add supportedProfile from loaded packages
+            if (this.app.packageManager && this.app.packageManager.loaded) {
+              const profiles = this.app.packageManager.getProfilesForResource(type);
+              if (profiles.length > 0) {
+                resourceDef.supportedProfile = profiles;
+              }
+            }
+
+            return resourceDef;
+          }),
           operation: operations.map(op => ({
             name: op.name,
             definition: `OperationDefinition/${op.name}`,

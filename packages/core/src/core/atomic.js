@@ -65,13 +65,29 @@ class Atomic {
         }
         return autoloadConfig;
       })(),
-      packages: {
-        enabled: true,  // Enabled by default
-        path: 'packages',
-        list: [],  // List of packages to download
-        defaultRegistry: 'https://get-ig.org',  // Default package registry
-        ...(config.packages === false ? { enabled: false } : config.packages)
-      }
+      packages: (() => {
+        // Handle different package configurations
+        if (config.packages === false) {
+          return { enabled: false };
+        }
+        
+        // If packages is an array, treat it as the list
+        if (Array.isArray(config.packages)) {
+          return {
+            enabled: true,
+            path: 'packages',
+            list: config.packages
+          };
+        }
+        
+        // Otherwise merge with defaults
+        return {
+          enabled: true,
+          path: 'packages',
+          list: [],
+          ...config.packages
+        };
+      })()
     };
 
     this.router = new Router();
@@ -608,10 +624,7 @@ class Atomic {
     if (options.packages !== false && this.config.packages.enabled) {
       // Download packages from registry if specified
       if (this.config.packages.list && this.config.packages.list.length > 0) {
-        await this.packageManager.downloadPackages(
-          this.config.packages.list,
-          this.config.packages.defaultRegistry
-        );
+        await this.packageManager.downloadPackages(this.config.packages.list);
       }
       
       // Load packages from disk

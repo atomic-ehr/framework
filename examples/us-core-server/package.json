@@ -1,11 +1,11 @@
 {
-  "name": "us-core-fhir-server",
-  "version": "0.1.0",
+  "name": "us-core-v8-server",
+  "version": "1.0.0",
+  "description": "US Core v8.0.0 server with direct URL download",
   "type": "module",
   "scripts": {
-    "start": "bun run src/server.js",
     "dev": "bun --watch src/server.js",
-    "test": "bun test"
+    "start": "bun src/server.js"
   },
   "dependencies": {
     "@atomic-fhir/core": "workspace:*"

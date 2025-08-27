@@ -4,6 +4,7 @@
   "description": "Core framework for Atomic FHIR - a FHIR-native web framework",
   "type": "module",
   "main": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
     ".": "./src/index.js",
     "./atomic": "./src/core/atomic.js",
@@ -17,7 +18,8 @@
   "files": [
     "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "src/**/*.d.ts"
   ],
   "keywords": [
     "fhir",

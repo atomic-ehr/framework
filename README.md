@@ -2,20 +2,21 @@
 
 A FHIR-native web framework for JavaScript/Bun that treats FHIR resources as first-class citizens. Instead of adapting traditional MVC patterns, Atomic uses FHIR's own concepts: StructureDefinitions for models, OperationDefinitions for business logic, and CapabilityStatements for API contracts.
 
-## Features
+## 🚀 Features
 
 - 🏥 **FHIR-Native**: Built specifically for FHIR, not adapted from generic frameworks
-- 🚀 **Bun Powered**: Leverages Bun's speed and built-in SQLite support
-- 🔍 **Auto-Discovery**: Automatically finds and registers resources, operations, middleware, and hooks
-- 🪝 **Flexible Hooks**: Separated lifecycle hooks with global, resource-specific, or multi-resource targeting
-- 📋 **Resource-Centric**: Define resources with configuration and capabilities
+- ⚡ **Bun Powered**: Leverages Bun's speed and built-in SQLite support
+- 📦 **Monorepo Architecture**: Modular packages with `@atomic-fhir/core`
+- 🔍 **Auto-Discovery**: Automatically finds and registers resources, operations, and hooks
+- 🪝 **Flexible Hooks**: Lifecycle hooks with global, resource-specific, or multi-resource targeting
+- 📋 **Full FHIR Capabilities**: Support for all FHIR interaction types (read, vread, update, patch, delete, history, search, etc.)
 - 🎯 **Custom Handlers**: Override any CRUD operation with custom business logic
-- 📦 **Package Management**: Auto-download FHIR packages from official registry (NEW!)
+- 📚 **Package Management**: Auto-download and load FHIR IG packages from official registries
 - 🔧 **Operations**: First-class support for FHIR operations ($match, $everything, etc.)
-- 🛡️ **Middleware**: Flexible middleware for auth, audit, consent
 - 💾 **Storage Adapters**: SQLite by default, extensible to PostgreSQL, MongoDB
-- 🏗️ **Implementation Guides**: Modular extension system via FHIR IGs
-- ✅ **Validation**: StructureDefinition-based validation with custom rules
+- ✨ **TypeScript Support**: Full TypeScript definitions for excellent IDE experience
+- 🏗️ **Auto-Registration**: Automatically registers base resources from loaded packages
+- 📊 **Supported Profiles**: Metadata endpoint reports all supported profiles per resource
 
 ## Quick Start
 
@@ -30,516 +31,236 @@ cd fhir-framework
 # Install dependencies
 bun install
 
-# Run basic example
-cd examples/basic-server
-bun install
+# Run an example server
+cd examples/minimal-server
 bun run dev
+```
+
+## Installation (NPM Package)
+
+```bash
+bun add @atomic-fhir/core
+# or
+npm install @atomic-fhir/core
 ```
 
 ## Quick Start - Zero Configuration
 
-Atomic automatically discovers and loads components by default. Create a FHIR server with minimal configuration:
-
 ```javascript
 // src/server.js
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 const app = new Atomic({
   server: {
     name: 'My FHIR Server',
     port: 3000
   }
-  // Autoload is enabled by default and looks in src/ folders!
+  // Autoload is enabled by default!
 });
-app.start();
 
-// index.js (entry point in root)
-import './src/server.js';
+await app.start();
 ```
 
-**Important:** Atomic now uses `src/` folders by default for all components:
+Atomic automatically discovers components from `src/` folders:
 - `src/resources/` - FHIR resource definitions
 - `src/operations/` - Custom FHIR operations
 - `src/middleware/` - Express-style middleware
 - `src/hooks/` - Lifecycle hooks
-- `src/implementation-guides/` - Custom IGs
 
-Just place your components in these folders and they're automatically registered:
+## TypeScript Support
+
+Full TypeScript support with comprehensive type definitions:
+
+```typescript
+import { 
+  Atomic, 
+  defineResource,
+  type AtomicConfig,
+  type ResourceDefinition,
+  type HandlerContext 
+} from '@atomic-fhir/core';
+
+const config: AtomicConfig = {
+  server: {
+    name: 'TypeScript FHIR Server',
+    port: 3000,
+    fhirVersion: '4.0.1'
+  },
+  packages: [
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    }
+  ]
+};
+
+const patientResource: ResourceDefinition = defineResource({
+  resourceType: 'Patient',
+  capabilities: {
+    read: true,
+    vread: true,
+    update: true,
+    'update-conditional': true,
+    patch: true,
+    'search-type': true
+  },
+  handlers: {
+    async create(req, context: HandlerContext) {
+      // Full type safety and IntelliSense
+      const patient = await req.json();
+      return {
+        status: 201,
+        body: patient
+      };
+    }
+  }
+});
+```
+
+## Package Management
+
+### Modern Package Configuration
+
+Atomic supports flexible package configuration with both NPM registry and direct URL downloads:
 
 ```javascript
-// src/resources/Patient.js
-import { defineResource } from '@atomic/framework';
+const app = new Atomic({
+  packages: [
+    // Using NPM-style registry
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    },
+    // Using direct URL download
+    {
+      package: 'hl7.fhir.us.core',
+      version: '7.0.0',
+      remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/7.0.0'
+    }
+  ]
+});
+```
 
+### Auto-Registration of Resources
+
+When loading packages like `hl7.fhir.r4.core`, Atomic automatically:
+1. Identifies all 147 base resource definitions (Patient, Observation, etc.)
+2. Registers them with full CRUD capabilities
+3. Makes them immediately available via REST API
+4. Reports their profiles in the metadata endpoint
+
+```javascript
+// This single configuration gives you ALL 147 FHIR R4 resources!
+const app = new Atomic({
+  packages: [
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    }
+  ]
+});
+
+// Instantly available:
+// GET/POST /Patient
+// GET/POST /Observation
+// GET/POST /Encounter
+// ... and all 144 other R4 resources!
+```
+
+## Resource Capabilities
+
+Full support for all FHIR interaction types:
+
+```javascript
 export default defineResource({
-  resourceType: 'Patient'
-  // All capabilities (create, read, update, delete, search, history) enabled by default!
-});
-```
-
-```javascript
-// src/hooks/timestamps.js
-import { defineHook } from '@atomic/framework';
-
-export default defineHook({
-  name: 'add-timestamps',
-  type: 'beforeCreate',
-  resources: '*',  // Apply to all resources
-  async handler(resource) {
-    resource.meta = { lastUpdated: new Date().toISOString() };
-    return resource;
-  }
-});
-```
-
-```javascript
-// src/operations/match.js
-import { defineOperation } from '@atomic/framework';
-
-export default defineOperation({
-  name: 'match',
-  resource: 'Patient',
-  type: 'type',
-  async handler(params, context) {
-    // Automatically discovered and registered!
-    return { resourceType: 'Bundle', entry: [] };
-  }
-});
-```
-
-```javascript
-// src/middleware/audit.js
-import { defineMiddleware } from '@atomic/framework';
-
-export default defineMiddleware({
-  name: 'audit',
-  async before(req, context) {
-    // Automatically discovered and applied!
-    console.log(`${req.method} ${req.url}`);
+  resourceType: 'Patient',
+  capabilities: {
+    // Instance level operations
+    read: true,                          // GET [base]/[type]/[id]
+    vread: true,                         // GET [base]/[type]/[id]/_history/[vid]
+    update: true,                        // PUT [base]/[type]/[id]
+    'update-conditional': false,        // PUT [base]/[type]?[search]
+    patch: false,                        // PATCH [base]/[type]/[id]
+    'patch-conditional': false,          // PATCH [base]/[type]?[search]
+    delete: true,                        // DELETE [base]/[type]/[id]
+    'delete-conditional-single': false, // DELETE [base]/[type]?[search]
+    'delete-conditional-multiple': false,
+    'delete-history': false,             // DELETE [base]/[type]/[id]/_history
+    'delete-history-version': false,     // DELETE [base]/[type]/[id]/_history/[vid]
+    'history-instance': true,            // GET [base]/[type]/[id]/_history
+    
+    // Type level operations
+    'history-type': true,                // GET [base]/[type]/_history
+    create: true,                        // POST [base]/[type]
+    'create-conditional': false,         // POST with If-None-Exist
+    'search-type': true                  // GET [base]/[type]
   }
 });
 ```
 
 ## Hooks System
 
-Hooks provide lifecycle event handling separated from resource definitions:
+Flexible lifecycle hooks with priority-based execution:
 
-### Global Hooks (Apply to All Resources)
 ```javascript
-import { defineHook } from '@atomic/framework';
+import { defineHook } from '@atomic-fhir/core';
 
+// Global hook for all resources
 export default defineHook({
-  name: 'global-validation',
+  name: 'add-timestamps',
   type: 'beforeCreate',
-  resources: '*',  // Applies to all resources
-  priority: 10,    // Higher priority executes first
+  resources: '*',
+  priority: 10,
   async handler(resource, context) {
-    // Add validation logic
+    resource.meta = { lastUpdated: new Date().toISOString() };
     return resource;
   }
 });
-```
 
-### Resource-Specific Hooks
-```javascript
+// Resource-specific hook
 export default defineHook({
-  name: 'patient-mrn',
+  name: 'patient-validation',
   type: 'beforeCreate',
-  resources: 'Patient',  // Only for Patient resources
+  resources: 'Patient',
   async handler(resource, context) {
-    // Add MRN if not present
+    // Custom validation
     return resource;
   }
 });
-```
 
-### Multi-Resource Hooks
-```javascript
+// Multi-resource hook
 export default defineHook({
   name: 'clinical-audit',
   type: 'afterCreate',
   resources: ['Observation', 'Condition', 'Procedure'],
   async handler(resource, context) {
-    // Audit clinical resources
     console.log(`Clinical resource created: ${resource.resourceType}/${resource.id}`);
   }
 });
 ```
 
-### Hook Types
+### Available Hook Types
 - `beforeCreate` / `afterCreate`
 - `beforeUpdate` / `afterUpdate`
 - `beforeDelete` / `afterDelete`
-- `beforeValidate` / `afterValidate`
 - `beforeRead` / `afterRead`
 - `beforeSearch` / `afterSearch`
+- `beforeValidate` / `afterValidate`
 
-## Package Management (NEW!)
-
-The framework can automatically download and load FHIR Implementation Guide packages from official registries. Package management is **enabled by default** - just specify which packages you want.
-
-### Quick Start
-
-```javascript
-const app = new Atomic({
-  packages: {
-    list: [
-      'hl7.fhir.r4.core@4.0.1',     // FHIR R4 Core
-      'hl7.fhir.us.core@5.0.1',     // US Core  
-      'hl7.fhir.uv.ips@1.0.0'       // International Patient Summary
-    ]
-    // enabled: true by default
-    // path: 'packages' by default
-    // defaultRegistry: 'https://get-ig.org' by default
-  }
-});
-```
-
-### Key Features
-
-- **🚀 Automatic Download**: Packages are downloaded on first server start
-- **📌 Version Control**: Specify exact versions for reproducibility
-- **🌐 Official Registry**: Uses the FHIR package registry at get-ig.org
-- **💾 Local Cache**: Downloaded packages are cached in `packages/` directory
-- **✨ Zero Setup**: No manual download or configuration required
-- **🔄 Smart Caching**: Only downloads if not already present
-- **🎯 Auto-Registration**: Base resources from packages are automatically registered (NEW!)
-
-### Auto-Registration of Resources (NEW!)
-
-When you load packages like `hl7.fhir.r4.core`, Atomic automatically:
-1. Identifies all base resource definitions (Patient, Observation, etc.)
-2. Registers them as fully-functional resources with all CRUD operations
-3. Configures their search parameters from the package
-4. Makes them immediately available via REST API
-
-This means with just one package, your server instantly supports all FHIR resources:
-
-```javascript
-// This single configuration gives you ALL 140+ R4 resources!
-const app = new Atomic({
-  packages: {
-    list: ['hl7.fhir.r4.core@4.0.1']
-  }
-});
-
-// Now you can immediately use:
-// GET/POST /Patient
-// GET/POST /Observation
-// GET/POST /Encounter
-// ... and all other R4 resources!
-```
-
-### What's Included in Packages
-
-Each FHIR package can contain:
-- **StructureDefinitions**: Resource and data type profiles for validation
-- **ValueSets**: Coded value sets for terminology binding
-- **CodeSystems**: Code system definitions
-- **SearchParameters**: Custom search parameter definitions
-- **OperationDefinitions**: Custom operation definitions
-- **ConceptMaps**: Mappings between code systems
-- **NamingSystem**: Identifier system definitions
-
-### Common Use Cases
-
-```javascript
-// Basic FHIR server with R4 Core
-packages: {
-  list: ['hl7.fhir.r4.core@4.0.1']
-}
-
-// US-based healthcare application
-packages: {
-  list: [
-    'hl7.fhir.r4.core@4.0.1',
-    'hl7.fhir.us.core@5.0.1',
-    'hl7.fhir.us.davinci-deqm@3.0.0'
-  ]
-}
-
-// International Patient Summary
-packages: {
-  list: [
-    'hl7.fhir.r4.core@4.0.1',
-    'hl7.fhir.uv.ips@1.0.0'
-  ]
-}
-```
-
-### How It Works
-
-1. **Server Start**: Framework checks if packages need downloading
-2. **Registry Query**: Fetches package metadata from registry
-3. **Download**: Downloads `.tgz` files to `packages/` directory
-4. **Loading**: Extracts and indexes all FHIR resources
-5. **Validation**: Makes profiles available for resource validation
-
-### Manual Package Management
-
-If you prefer manual control:
-
-```bash
-# Download manually using npm
-npm install --registry https://fs.get-ig.org/pkgs hl7.fhir.r4.core
-
-# Move to packages directory
-mv node_modules/hl7.fhir.r4.core/*.tgz packages/
-
-# Or download from packages.fhir.org
-curl -o packages/hl7.fhir.r4.core.tgz \
-  https://packages.fhir.org/hl7.fhir.r4.core/4.0.1
-```
-
-### Troubleshooting
-
-**Package download fails?**
-- Check internet connectivity
-- Verify package name and version
-- Check if registry is accessible: https://get-ig.org
-- Try manual download as fallback
-
-**Package not loading?**
-- Check `packages/` directory for `.tgz` files
-- Verify file isn't corrupted
-- Check console logs for errors
-- Ensure package contains valid FHIR resources
-
-## Configuration Options
-
-### Disabling Auto-Discovery
-
-If you prefer manual registration:
-
-```javascript
-import { Atomic, defineResource, defineOperation } from '@atomic/framework';
-
-const app = new Atomic({
-  server: { name: 'My FHIR Server' },
-  autoload: false,  // Disable auto-discovery
-  packages: false   // Disable package loading
-});
-
-// Manually register components
-app.registerResource('Patient', PatientResource);
-app.registerOperation(matchOperation);
-app.use(auditMiddleware);
-
-app.start(3000);
-```
-
-### Custom Paths
-
-Customize where components are loaded from:
-
-```javascript
-const app = new Atomic({
-  autoload: {
-    paths: {
-      resources: 'src/resources',
-      operations: 'src/operations',
-      middleware: 'src/middleware',
-      hooks: 'src/hooks'  // Custom hooks path
-    }
-  },
-  packages: {
-    path: 'fhir-packages'
-  }
-});
-```
-
-## Project Structure
-
-Atomic follows a convention-over-configuration approach with organized source code:
-
-```text
-my-fhir-server/
-├── server.js              # Main server configuration
-├── src/                   # Source code directory
-│   ├── resources/        # FHIR resource definitions
-│   │   ├── Patient.js
-│   │   └── Observation.js
-│   ├── operations/       # FHIR operations ($match, $validate, etc.)
-│   │   ├── match.js
-│   │   └── export.js
-│   ├── middleware/       # HTTP middleware (auth, cors, logging)
-│   │   ├── auth.js
-│   │   └── audit.js
-│   └── hooks/            # Lifecycle hooks (validation, timestamps)
-│       ├── timestamps.js
-│       ├── validation.js
-│       └── audit.js
-├── tests/                # Test files
-│   ├── unit/            # Unit tests
-│   ├── integration/     # Integration tests
-│   └── e2e/            # End-to-end tests
-├── packages/             # FHIR IG packages
-│   ├── us-core/
-│   └── my-profiles.tgz
-└── package.json          # Dependencies and scripts
-```
-
-## Examples
-
-### Minimal Server
-The simplest possible FHIR server using auto-discovery - just 5 lines of code!
-
-```bash
-cd examples/minimal-server
-bun run dev
-```
-
-### Basic Server
-A simple FHIR server with Patient and Observation resources, patient matching, and audit logging.
-
-```bash
-cd examples/basic-server
-bun run dev
-```
-
-### Custom Handlers Server
-Demonstrates custom resource handlers with business logic, auto-generated identifiers, and complex validation rules.
-
-```bash
-cd examples/custom-handlers-server
-bun run dev
-```
-
-Features:
-- Patient resource with auto-generated MRN
-- Observation with automatic vital sign interpretation
-- Encounter with business rule enforcement
-- Custom search with aggregation statistics
-
-### R4 Core Server (NEW!)
-FHIR R4 Core server with automatic package download from registry.
-
-```bash
-cd examples/r4-core-server
-bun run dev
-```
-
-Features:
-- Automatic download of `hl7.fhir.r4.core` package
-- Full R4 Core validation
-- No manual package setup required
-- Uses official FHIR package registry
-
-### US Core Server
-A US Core Implementation Guide compliant server with:
-- US Core profiled resources
-- SMART on FHIR authentication
-- Consent-based access control
-- Bulk data export
-- Patient $everything operation
-
-```bash
-cd examples/us-core-server
-bun run dev
-```
-
-## Core Concepts
-
-### Auto-Discovery Convention (Default)
-By default, Atomic automatically discovers components from the `src/` directory:
-
-```
-my-fhir-server/
-├── index.js               # Entry point (imports ./src/server.js)
-├── src/                   # All source code in src/
-│   ├── server.js          # Main server configuration
-│   ├── resources/         # Auto-loaded resources
-│   │   ├── Patient.js     # export default defineResource()
-│   │   └── Observation.js   
-│   ├── operations/        # Auto-loaded operations
-│   │   ├── match.js       # export default defineOperation()
-│   │   └── export.js        
-│   ├── middleware/        # Auto-loaded middleware
-│   │   ├── auth.js        # export default defineMiddleware()
-│   │   └── audit.js         
-│   └── hooks/             # Auto-loaded hooks
-│       ├── timestamps.js  # export default defineHook()
-│       └── validation.js
-└── packages/              # Auto-loaded FHIR IG packages
-    ├── us.core/           # Unpacked package
-    └── ips.tgz            # Compressed package
-```
-
-### Configuration
-
-The framework uses sensible defaults that work for most cases:
-
-```javascript
-// Default configuration (you don't need to specify this)
-const app = new Atomic({
-  server: {
-    port: 3000,
-    name: 'Atomic FHIR Server'
-  },
-  autoload: {
-    enabled: true,  // Enabled by default
-    paths: {
-      resources: 'src/resources',
-      operations: 'src/operations', 
-      middleware: 'src/middleware',
-      hooks: 'src/hooks',
-      implementationGuides: 'src/implementation-guides'
-    }
-  },
-  packages: {
-    enabled: true,  // Enabled by default
-    path: 'packages'
-  }
-});
-
-// Disable autoload for manual registration
-const app = new Atomic({
-  autoload: false
-});
-
-// Custom paths
-const app = new Atomic({
-  autoload: {
-    paths: {
-      resources: 'custom/resources'
-      // Other paths remain default
-    }
-  }
-});
-```
-
-### Resources
-
-Resources are defined with all CRUD capabilities enabled by default:
-
-```javascript
-// src/resources/Patient.js
-export default defineResource({
-  resourceType: 'Patient',
-  
-  // All capabilities (create, read, update, delete, search, history) enabled by default!
-  // Override specific capabilities if needed:
-  // capabilities: { delete: false },
-  
-  // Custom search parameters
-  searches: {
-    'mrn': { type: 'token', path: 'identifier' }
-  }
-});
-```
-
-### Custom Resource Handlers (NEW!)
+## Custom Resource Handlers
 
 Override any CRUD operation with custom business logic:
 
 ```javascript
-// src/resources/Patient.js
 export default defineResource({
   resourceType: 'Patient',
   
   handlers: {
-    // Custom create with MRN generation
     async create(req, context) {
-      const { storage, hooks, config } = context;
+      const { storage, hooks, validator, config } = context;
       const patient = await req.json();
       
       // Generate Medical Record Number
@@ -547,81 +268,171 @@ export default defineResource({
       patient.identifier = patient.identifier || [];
       patient.identifier.push({
         system: 'http://hospital.example.org/mrn',
-        value: mrn,
-        use: 'official'
+        value: mrn
       });
       
-      // Store and return
       const created = await storage.create('Patient', patient);
       
       return {
         status: 201,
         headers: {
           'Content-Type': 'application/fhir+json',
-          'Location': `${config.server.url}/Patient/${created.id}`
+          'Location': `/Patient/${created.id}`
         },
         body: created  // Auto-converted to JSON
       };
-    },
-    
-    // Also available: read, update, delete, search
+    }
   }
 });
 ```
 
-Custom handlers are perfect for:
-- Enforcing business rules
-- Integrating with external systems
-- Auto-generating identifiers
-- Custom validation logic
-- Performance optimizations
+## Metadata Endpoint with Profiles
 
-### Operations
-FHIR operations are first-class citizens:
+The `/metadata` endpoint automatically reports supported profiles for each resource:
+
+```json
+{
+  "resourceType": "CapabilityStatement",
+  "rest": [{
+    "resource": [{
+      "type": "Patient",
+      "supportedProfile": [
+        "http://hl7.org/fhir/StructureDefinition/Patient",
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+      ],
+      "interaction": [
+        { "code": "read" },
+        { "code": "vread" },
+        { "code": "update" },
+        { "code": "delete" },
+        { "code": "history-instance" },
+        { "code": "create" },
+        { "code": "search-type" }
+      ]
+    }]
+  }]
+}
+```
+
+## Project Structure
+
+### Framework Structure (Monorepo)
+```
+fhir-framework/
+├── packages/
+│   └── core/                    # @atomic-fhir/core package
+│       ├── src/
+│       │   ├── index.js         # Main exports
+│       │   ├── index.d.ts       # TypeScript definitions
+│       │   ├── core/            # Framework core
+│       │   └── storage/         # Storage adapters
+│       └── package.json
+├── examples/                    # Example servers
+│   ├── minimal-server/
+│   ├── r4-core-server/
+│   ├── typescript-test/
+│   └── ...
+└── package.json                 # Root with workspaces
+```
+
+### User Project Structure
+```
+my-fhir-server/
+├── src/
+│   ├── server.js               # Server configuration
+│   ├── resources/              # FHIR resources
+│   │   └── Patient.js
+│   ├── operations/             # FHIR operations
+│   │   └── match.js
+│   ├── hooks/                  # Lifecycle hooks
+│   │   └── timestamps.js
+│   └── middleware/             # HTTP middleware
+│       └── auth.js
+├── packages/                   # FHIR IG packages (.tgz files)
+└── package.json
+```
+
+## Examples
+
+### Minimal Server (3 lines!)
+```bash
+cd examples/minimal-server
+bun run dev
+```
+
+### R4 Core Server
+Full FHIR R4 server with all 147 resources:
+```bash
+cd examples/r4-core-server
+bun run dev
+```
+
+### TypeScript Example
+Full TypeScript support with type safety:
+```bash
+cd examples/typescript-test
+bun run dev
+```
+
+### Custom Handlers Server
+Advanced business logic and custom handlers:
+```bash
+cd examples/custom-handlers-server
+bun run dev
+```
+
+## Operations
+
+Define FHIR operations with full parameter support:
 
 ```javascript
-// operations/match.js
 export default defineOperation({
   name: 'match',
-  resource: 'Patient', // or null for system-level
-  type: 'type', // 'type' | 'instance' | 'system'
+  resource: 'Patient',
+  type: true,
+  instance: false,
   parameters: {
-    input: [...],
-    output: [...]
+    input: [
+      {
+        name: 'resource',
+        min: 1,
+        max: '1',
+        type: 'Patient'
+      }
+    ],
+    output: [
+      {
+        name: 'return',
+        min: 1,
+        max: '1',
+        type: 'Bundle'
+      }
+    ]
   },
   async handler(params, context) {
     // Implementation
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      entry: []
+    };
   }
 });
 ```
 
-### Middleware
-Cross-cutting concerns are handled through middleware:
+## Storage Adapters
+
+Pluggable storage with SQLite default:
 
 ```javascript
-// middleware/audit.js
-export default defineMiddleware({
-  name: 'audit',
-  scope: {
-    resources: ['Patient', 'Observation'],
-    operations: ['read', 'create']
-  },
-  async before(req, context) {},
-  async after(response, context) {}
+const app = new Atomic({
+  storage: {
+    adapter: 'sqlite',  // or 'postgresql', 'mongodb'
+    config: {
+      database: './fhir.db'
+    }
+  }
 });
-```
-
-### Storage Adapters
-Pluggable storage layer with SQLite by default:
-
-```javascript
-class CustomAdapter extends StorageAdapter {
-  async create(resourceType, resource) {}
-  async read(resourceType, id) {}
-  async update(resourceType, id, resource) {}
-  async delete(resourceType, id) {}
-  async search(resourceType, params) {}
-}
 ```
 
 ## CLI Tool
@@ -632,30 +443,51 @@ bun cli.js new my-fhir-server
 
 # Generate resources
 bun cli.js generate resource Patient
-bun cli.js generate resource Observation
 
 # Generate operations
-bun cli.js generate operation Patient/$match
-bun cli.js generate operation $export
+bun cli.js generate operation match
 ```
 
-## Roadmap
+## Configuration Options
 
-- [x] Core framework structure
-- [x] Resource definition system
-- [x] Operation handling
-- [x] Middleware system
-- [x] SQLite storage adapter
-- [x] Basic validation
-- [x] CLI tool
-- [x] Example applications
-- [ ] PostgreSQL adapter
-- [ ] MongoDB adapter
-- [ ] Subscription support
-- [ ] GraphQL interface
-- [ ] Full StructureDefinition validation
-- [ ] Implementation Guide loader
-- [ ] Cloud deployment tools
+```javascript
+const app = new Atomic({
+  server: {
+    name: 'My FHIR Server',
+    port: 3000,
+    fhirVersion: '4.0.1'
+  },
+  
+  // Package management
+  packages: [
+    { package: 'hl7.fhir.r4.core', version: '4.0.1', npmRegistry: 'https://get-ig.org' }
+  ],
+  
+  // Auto-discovery (enabled by default)
+  autoload: {
+    enabled: true,
+    paths: {
+      resources: 'src/resources',
+      operations: 'src/operations',
+      hooks: 'src/hooks',
+      middleware: 'src/middleware'
+    }
+  },
+  
+  // Storage configuration
+  storage: {
+    adapter: 'sqlite',
+    config: {
+      database: ':memory:'
+    }
+  },
+  
+  // Validation
+  validation: {
+    strict: true
+  }
+});
+```
 
 ## Design Philosophy
 
@@ -666,11 +498,11 @@ Atomic represents a paradigm shift in FHIR application development:
 - **Routes → CapabilityStatements**: API contracts using FHIR's own format
 - **Plugins → Implementation Guides**: Extensions through standard FHIR IGs
 
-This approach ensures that your FHIR server is not just compliant, but natively speaks the language of healthcare interoperability.
+This approach ensures your FHIR server is not just compliant, but natively speaks the language of healthcare interoperability.
 
 ## Contributing
 
-Contributions are welcome! Please read the [Design Document](DESIGN.md) to understand the architecture and design decisions.
+Contributions are welcome! Please see [CLAUDE.md](CLAUDE.md) for development guidelines.
 
 ## License
 

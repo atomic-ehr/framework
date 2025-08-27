@@ -5,15 +5,21 @@ const app = new Atomic({
     name: 'FHIR R4 Core Server',
   },
   
-  // Package configuration - automatic download from registry
-  packages: {
-    list: [
-      'hl7.fhir.r4.core@4.0.1' 
-    ],
-    // defaultRegistry: 'https://get-ig.org'
-  },
-  
+  // Package configuration - using new format with explicit registry
+  packages: [
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org' 
+    },
+    { 
+      package: 'hl7.fhir.us.core',
+      version: '7.0.0',
+      remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/7.0.0' 
+    },
+  ]
 });
+
 
 await app.start();
 

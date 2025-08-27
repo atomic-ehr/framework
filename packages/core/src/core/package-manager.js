@@ -22,12 +22,12 @@ export class PackageManager {
   /**
    * Download packages from registry if specified in config
    */
-  async downloadPackages(packageList = [], registry = 'https://get-ig.org') {
+  async downloadPackages(packageList = []) {
     if (!packageList || packageList.length === 0) {
       return;
     }
 
-    console.log(`📦 Downloading ${packageList.length} FHIR packages from ${registry}...`);
+    console.log(`📦 Downloading ${packageList.length} FHIR packages...`);
     
     // Ensure packages directory exists
     const packagesDir = join(process.cwd(), this.packagesPath);
@@ -35,19 +35,65 @@ export class PackageManager {
       await mkdir(packagesDir, { recursive: true });
     }
 
-    for (const packageName of packageList) {
+    for (const packageConfig of packageList) {
       try {
-        await this.downloadPackage(packageName, registry, packagesDir);
+        if (typeof packageConfig === 'string') {
+          // Legacy string format: 'package@version'
+          await this.downloadPackageFromRegistry(packageConfig, 'https://get-ig.org', packagesDir);
+        } else if (packageConfig.remoteUrl) {
+          // Direct URL download
+          await this.downloadPackageFromUrl(packageConfig, packagesDir);
+        } else if (packageConfig.npmRegistry) {
+          // NPM-style registry download
+          const packageId = `${packageConfig.package}@${packageConfig.version || 'latest'}`;
+          await this.downloadPackageFromRegistry(packageId, packageConfig.npmRegistry, packagesDir);
+        } else {
+          // Default to get-ig.org registry
+          const packageId = `${packageConfig.package}@${packageConfig.version || 'latest'}`;
+          await this.downloadPackageFromRegistry(packageId, 'https://get-ig.org', packagesDir);
+        }
       } catch (error) {
+        const packageName = typeof packageConfig === 'string' ? packageConfig : packageConfig.package;
         console.error(`❌ Failed to download package ${packageName}:`, error.message);
       }
     }
   }
 
   /**
-   * Download a single package from the registry
+   * Download a package from a direct URL
    */
-  async downloadPackage(packageName, registry, packagesDir) {
+  async downloadPackageFromUrl(packageConfig, packagesDir) {
+    const { package: packageName, version, remoteUrl } = packageConfig;
+    console.log(`  📥 Downloading ${packageName}@${version} from ${remoteUrl}...`);
+    
+    // Determine filename
+    const filename = `${packageName}.tgz`;
+    const packagePath = join(packagesDir, filename);
+    
+    // Check if package already exists
+    if (existsSync(packagePath)) {
+      console.log(`    ✓ Package ${packageName} already exists, skipping download`);
+      return;
+    }
+    
+    // Download the package
+    console.log(`    → Downloading from ${remoteUrl}`);
+    const response = await fetch(remoteUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download package: ${response.status} ${response.statusText}`);
+    }
+    
+    // Save to file
+    const buffer = await response.arrayBuffer();
+    await writeFile(packagePath, Buffer.from(buffer));
+    console.log(`    ✓ Downloaded ${packageName} to ${filename}`);
+  }
+
+  /**
+   * Download a single package from NPM-style registry
+   */
+  async downloadPackageFromRegistry(packageName, registry, packagesDir) {
     console.log(`  📥 Downloading ${packageName}...`);
     
     // Parse package name and version
@@ -362,6 +408,31 @@ export class PackageManager {
 
   getProfile(url) {
     return this.profiles.get(url);
+  }
+
+  /**
+   * Get all profiles for a specific resource type
+   * @param {string} resourceType - The resource type (e.g., 'Patient')
+   * @returns {Array<string>} Array of profile URLs
+   */
+  getProfilesForResource(resourceType) {
+    const profiles = [];
+    
+    // First, add the base resource definition if it exists
+    const baseDefinition = this.baseResourceDefinitions.get(resourceType);
+    if (baseDefinition && baseDefinition.url) {
+      profiles.push(baseDefinition.url);
+    }
+    
+    // Then add all constraint profiles for this resource type
+    for (const [url, profile] of this.profiles) {
+      // Check if this profile is for the specified resource type
+      if (profile.type === resourceType || profile.baseDefinition?.includes(`/${resourceType}`)) {
+        profiles.push(url);
+      }
+    }
+    
+    return profiles;
   }
 
   getValueSet(url) {

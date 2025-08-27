@@ -1,86 +1,34 @@
 import { Atomic } from '@atomic-fhir/core';
 
-// Create US Core compliant server
 const app = new Atomic({
   server: {
-    name: 'US Core FHIR Server',
-    version: '0.1.0',
-    port: 3001,
-    url: 'http://localhost:3001',
-    fhirVersion: '4.0.1'
+    name: 'US Core v8.0.0 FHIR Server',
+    port: 3008
   },
-  storage: {
-    adapter: 'sqlite',
-    config: {
-      database: './us-core-data.db'
-    }
-  },
-  validation: {
-    strict: true,
-    profiles: ['us-core']
-  },
-  features: {
-    bulkData: true,
-    subscription: false,
-    smartOnFhir: true
-  }
-  // Autoload is enabled by default and uses src/ folders
-});
-
-// Start server
-// The framework automatically discovers and registers:
-// - All resources in ./resources/
-// - All operations in ./operations/
-// - All middleware in ./middleware/
-// - All packages in ./packages/
-app.start().then(() => {
-  // Add US Core specific validation profiles after server starts
-  app.validator.registerProfile('http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient', {
-    required: ['identifier', 'name', 'gender'],
-    cardinalities: {
-      identifier: { min: 1 },
-      name: { min: 1 },
-      telecom: { min: 0 },
-      address: { min: 0 },
-      communication: { min: 0 }
+  
+  // Package configuration demonstrating both methods
+  packages: [
+    // Using npmRegistry (get-ig.org)
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org' 
     },
-    mustSupport: [
-      'identifier',
-      'identifier.system',
-      'identifier.value',
-      'name',
-      'name.family',
-      'name.given',
-      'telecom',
-      'telecom.system',
-      'telecom.value',
-      'telecom.use',
-      'gender',
-      'birthDate',
-      'address',
-      'address.line',
-      'address.city',
-      'address.state',
-      'address.postalCode',
-      'communication',
-      'communication.language'
-    ]
-  });
+    // Using direct URL download  
+    {
+      package: 'hl7.fhir.us.core',
+      version: '8.0.0',
+      remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/8.0.0'
+    }
+  ]
 });
 
-console.log(`
-🏥 US Core FHIR Server is running!
+await app.start();
 
-This server implements US Core IG requirements including:
-- US Core Patient, Observation, and Practitioner profiles
-- SMART on FHIR authentication
-- Consent-based access control
-- Bulk data export
-- Patient $everything operation
-
-Endpoints:
-- GET  http://localhost:3001/metadata
-- POST http://localhost:3001/Patient (US Core compliant)
-- GET  http://localhost:3001/Patient/{id}/$everything
-- POST http://localhost:3001/$export
-`);
+console.log('🏥 US Core v8.0.0 FHIR Server Started');
+console.log('📦 Demonstrates both npmRegistry and remoteUrl package downloads');
+console.log('✅ Server includes FHIR R4 Core + US Core v8.0.0 profiles');
+console.log('');
+console.log('Available endpoints:');
+console.log('  GET /metadata - Server capability statement');
+console.log('  GET /Patient - Search US Core patients');

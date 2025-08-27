@@ -1,424 +1,388 @@
-# FHIR Package Management
+# Package Management in Atomic FHIR Framework
 
-Atomic Framework provides seamless integration with the FHIR package ecosystem, allowing automatic download and loading of Implementation Guide packages.
+This document explains how the Atomic FHIR framework handles FHIR Implementation Guide (IG) packages, including automatic downloading, loading, and integration with the server.
 
 ## Overview
 
-FHIR packages are standardized distributions of FHIR resources (profiles, value sets, code systems, etc.) that define implementation requirements. The Atomic Framework can automatically:
-
-- Download packages from official registries
-- Cache packages locally
-- Load and index all contained resources
+The Atomic framework includes a comprehensive package management system that can:
+- Automatically download FHIR IG packages from registries
+- Load and index FHIR conformance resources
+- Auto-register base resource definitions from loaded packages
 - Make profiles available for validation
-- Provide runtime access to value sets and code systems
+- Report supported profiles in the metadata endpoint
 
 ## Configuration
 
-### Basic Setup
+### Basic Configuration
 
-Package management is **enabled by default** in Atomic Framework. To use packages, specify which ones to download:
+Packages can be configured in two ways:
+
+#### 1. NPM Registry Mode
+Uses an NPM-compatible registry API (like get-ig.org):
 
 ```javascript
-import { Atomic } from '@atomic/framework';
+import { Atomic } from '@atomic-fhir/core';
 
 const app = new Atomic({
-  packages: {
-    list: [                                  // Packages to download
-      'hl7.fhir.r4.core@4.0.1',
-      'hl7.fhir.us.core@5.0.1'
-    ]
-    // No need to set enabled: true - it's the default!
-    // path defaults to 'packages'
-    // defaultRegistry defaults to 'https://get-ig.org'
-  }
+  packages: [
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    }
+  ]
 });
 ```
 
-**Note**: Package management is enabled by default, but no packages are downloaded unless you specify them in the `list` array. The framework will also load any existing packages found in the `packages/` directory.
-
-### Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable/disable package management (enabled by default) |
-| `path` | string | `'packages'` | Directory to store downloaded packages |
-| `list` | string[] | `[]` | List of packages to download |
-| `defaultRegistry` | string | `'https://get-ig.org'` | Default package registry URL |
-
-## Package Specification
-
-### Version Syntax
-
-Packages are specified using npm-style syntax:
+#### 2. Direct URL Mode
+Downloads directly from a specified URL:
 
 ```javascript
-// Specific version
-'hl7.fhir.r4.core@4.0.1'
-
-// Latest version (if no version specified)
-'hl7.fhir.r4.core'
-
-// Version ranges (future support)
-'hl7.fhir.us.core@^5.0.0'
+const app = new Atomic({
+  packages: [
+    {
+      package: 'hl7.fhir.us.core',
+      version: '7.0.0',
+      remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/7.0.0'
+    }
+  ]
+});
 ```
 
-### Common Packages
+### Mixed Configuration
 
-#### Core Specifications
+You can mix both modes in the same configuration:
+
 ```javascript
-'hl7.fhir.r4.core@4.0.1'        // FHIR R4 Core definitions
-'hl7.fhir.r4b.core@4.3.0'       // FHIR R4B Core definitions
-'hl7.fhir.r5.core@5.0.0'        // FHIR R5 Core definitions
-```
+const app = new Atomic({
+  packages: [
+    // Using NPM registry
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    },
+    // Using direct URL
+    {
+      package: 'hl7.fhir.us.core',
+      version: '7.0.0',
+      remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/7.0.0'
+    }
+  ]
+});
 
-#### Regional Profiles
-```javascript
-'hl7.fhir.us.core@5.0.1'        // US Core Implementation Guide
-'hl7.fhir.ca.baseline@1.0.0'    // Canadian Baseline
-'hl7.fhir.au.base@4.1.0'        // Australian Base Profiles
-'hl7.fhir.uk.core@1.0.0'        // UK Core
-```
 
-#### Clinical Specifications
-```javascript
-'hl7.fhir.uv.ips@1.0.0'         // International Patient Summary
-'hl7.fhir.uv.sdc@3.0.0'         // Structured Data Capture
-'hl7.fhir.uv.genomics-reporting@2.0.0'  // Genomics Reporting
-```
-
-#### Infrastructure
-```javascript
-'hl7.fhir.uv.subscriptions-backport@1.0.0'  // Subscriptions R4 Backport
-'hl7.fhir.uv.bulkdata@2.0.0'    // Bulk Data Access
-'hl7.fhir.uv.smart-app-launch@2.0.0'  // SMART App Launch
-```
 
 ## How It Works
 
-### Download Process
+### 1. Package Download Process
 
-1. **Server Start**: When the server starts, it checks the configured package list
-2. **Cache Check**: For each package, checks if it already exists in the `packages/` directory
-3. **Registry Query**: If not cached, queries the registry for package metadata
-4. **Download**: Downloads the package tarball (`.tgz` file)
-5. **Storage**: Saves the tarball to the `packages/` directory
+When the server starts:
+1. Checks the `packages/` directory for existing `.tgz` files
+2. Downloads missing packages based on configuration
+3. For NPM registry mode:
+   - Fetches metadata from registry API
+   - Downloads the tarball from the URL in metadata
+4. For direct URL mode:
+   - Downloads directly from the specified URL
+5. Saves packages as `.tgz` files in the `packages/` directory
 
-### Loading Process
+### 2. Package Loading
 
-1. **Discovery**: Scans the `packages/` directory for `.tgz` files
-2. **Extraction**: Reads package contents without full extraction
-3. **Indexing**: Indexes all FHIR resources by type and canonical URL
-4. **Registration**: Registers profiles with the validator
-5. **Auto-Registration**: Automatically registers base resource definitions
-6. **Availability**: Makes resources available for runtime access
+After downloading, the PackageManager:
+1. Extracts the `.tgz` file in memory
+2. Parses the `package.json` for metadata
+3. Indexes all FHIR conformance resources:
+   - StructureDefinitions (profiles and extensions)
+   - ValueSets
+   - CodeSystems
+   - SearchParameters
+   - OperationDefinitions
 
-### Auto-Registration of Base Resources (NEW!)
+### 3. Auto-Registration of Base Resources
 
-When packages are loaded, Atomic automatically identifies and registers base FHIR resource definitions (StructureDefinitions with `derivation: specialization`). This means:
+When loading core packages (like `hl7.fhir.r4.core`), the framework automatically:
+1. Identifies all base resource definitions (Patient, Observation, etc.)
+2. Registers them as resources with full CRUD capabilities
+3. Makes them immediately available via REST API
 
-- **No manual resource definitions needed**: When you load `hl7.fhir.r4.core`, all R4 resources (Patient, Observation, etc.) are automatically available
-- **Full CRUD capabilities**: All auto-registered resources have create, read, update, delete, search, and history operations enabled
-- **Search parameters included**: Package-defined search parameters are automatically configured
-- **User definitions take precedence**: If you define a resource in `src/resources/`, it overrides the auto-registered version
-
-Example: With just the R4 Core package, your server instantly supports all 140+ FHIR resources:
-
+Example:
 ```javascript
+// Loading R4 Core automatically registers all 147 base resources
 const app = new Atomic({
-  packages: {
-    list: ['hl7.fhir.r4.core@4.0.1']
-  }
-  // No need to define Patient, Observation, etc. - they're auto-registered!
-});
-```
-
-### Resource Types Loaded
-
-- **StructureDefinition**: Resource and data type profiles
-- **ValueSet**: Terminology value sets
-- **CodeSystem**: Code system definitions
-- **SearchParameter**: Custom search parameters
-- **OperationDefinition**: Custom operations
-- **ConceptMap**: Terminology mappings
-- **NamingSystem**: Identifier systems
-- **CapabilityStatement**: Server capabilities
-- **CompartmentDefinition**: Resource compartments
-
-## API Usage
-
-### Accessing Package Resources
-
-```javascript
-// In your server code
-const app = new Atomic({ /* config */ });
-await app.start();
-
-// Access loaded profiles
-const patientProfile = app.packageManager.getProfile(
-  'http://hl7.org/fhir/StructureDefinition/Patient'
-);
-
-// Access value sets
-const genderValueSet = app.packageManager.getValueSet(
-  'http://hl7.org/fhir/ValueSet/administrative-gender'
-);
-
-// Access code systems
-const loincCodeSystem = app.packageManager.getCodeSystem(
-  'http://loinc.org'
-);
-
-// Get all resources of a type
-const allProfiles = app.packageManager.getResourcesByType('StructureDefinition');
-```
-
-### Using in Validation
-
-Loaded profiles are automatically available for validation:
-
-```javascript
-const app = new Atomic({
-  packages: {
-    list: ['hl7.fhir.us.core@5.0.1']
-  },
-  validation: {
-    strict: true  // Enable strict validation
-  }
+  packages: [
+    { 
+      package: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      npmRegistry: 'https://get-ig.org'
+    }
+  ]
 });
 
-// Resources will be validated against US Core profiles automatically
+// All resources are now available:
+// GET/POST /Patient
+// GET/POST /Observation
+// GET/POST /Encounter
+// ... and all other R4 resources
 ```
 
-## Manual Package Management
+## Package Contents
 
-### Download Manually
+### What's in a FHIR Package?
 
-If automatic download fails or you prefer manual control:
+A typical FHIR package contains:
 
-#### Using npm
-```bash
-# Use the FHIR registry
-npm install --registry https://fs.get-ig.org/pkgs hl7.fhir.r4.core
-
-# Move to packages directory
-mv node_modules/hl7.fhir.r4.core/*.tgz packages/
 ```
-
-#### Using curl
-```bash
-# Download directly
-curl -o packages/hl7.fhir.r4.core.tgz \
-  https://packages.fhir.org/hl7.fhir.r4.core/4.0.1
-```
-
-#### Using wget
-```bash
-wget -P packages/ \
-  https://packages.fhir.org/hl7.fhir.r4.core/4.0.1/package.tgz
-```
-
-### Package Structure
-
-A valid FHIR package contains:
-```
-package.tgz
+package.tgz/
+├── package.json          # Package metadata
 ├── package/
-│   ├── package.json          # Package metadata
-│   ├── StructureDefinition-*.json
-│   ├── ValueSet-*.json
-│   ├── CodeSystem-*.json
-│   └── ...other FHIR resources
+│   ├── StructureDefinition-*.json   # Resource profiles
+│   ├── ValueSet-*.json              # Value sets
+│   ├── CodeSystem-*.json            # Code systems
+│   ├── SearchParameter-*.json       # Custom search params
+│   └── OperationDefinition-*.json   # Custom operations
+└── other-info.json       # Package manifest
 ```
+
+### Resource Profiles
+
+Profiles define constraints on base resources. The framework:
+- Loads all profiles from packages
+- Makes them available to the validator
+- Reports them in the metadata endpoint
+
+Example metadata output:
+```json
+{
+  "resourceType": "CapabilityStatement",
+  "rest": [{
+    "resource": [{
+      "type": "Patient",
+      "supportedProfile": [
+        "http://hl7.org/fhir/StructureDefinition/Patient",
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+      ]
+    }]
+  }]
+}
+```
+
+## Common Packages
+
+### Core Specifications
+
+```javascript
+packages: [
+  // FHIR R4 Core - Base specification
+  { 
+    package: 'hl7.fhir.r4.core',
+    version: '4.0.1',
+    npmRegistry: 'https://get-ig.org'
+  },
+  
+  // FHIR R4B Core
+  { 
+    package: 'hl7.fhir.r4b.core',
+    version: '4.3.0',
+    npmRegistry: 'https://get-ig.org'
+  },
+  
+  // FHIR R5 Core
+  { 
+    package: 'hl7.fhir.r5.core',
+    version: '5.0.0',
+    npmRegistry: 'https://get-ig.org'
+  }
+]
+```
+
+### Regional Profiles
+
+```javascript
+packages: [
+  // US Core
+  { 
+    package: 'hl7.fhir.us.core',
+    version: '7.0.0',
+    remoteUrl: 'https://packages2.fhir.org/packages/hl7.fhir.us.core/7.0.0'
+  },
+  
+  // Canadian Baseline
+  { 
+    package: 'hl7.fhir.ca.baseline',
+    version: '1.0.0',
+    npmRegistry: 'https://get-ig.org'
+  },
+  
+  // Australian Base
+  { 
+    package: 'hl7.fhir.au.base',
+    version: '4.1.0',
+    npmRegistry: 'https://get-ig.org'
+  }
+]
+```
+
+### Domain-Specific IGs
+
+```javascript
+packages: [
+  // International Patient Summary
+  { 
+    package: 'hl7.fhir.uv.ips',
+    version: '1.0.0',
+    npmRegistry: 'https://get-ig.org'
+  },
+  
+  // Structured Data Capture
+  { 
+    package: 'hl7.fhir.uv.sdc',
+    version: '3.0.0',
+    npmRegistry: 'https://get-ig.org'
+  },
+  
+  // Subscriptions Backport
+  { 
+    package: 'hl7.fhir.uv.subscriptions-backport',
+    version: '1.0.0',
+    npmRegistry: 'https://get-ig.org'
+  }
+]
+```
+
+## API Reference
+
+### PackageManager Class
+
+The PackageManager provides methods to interact with loaded packages:
+
+```javascript
+// Get all profiles for a resource type
+const profiles = app.packageManager.getProfilesForResource('Patient');
+// Returns: ['http://hl7.org/fhir/StructureDefinition/Patient', ...]
+
+// Get a specific profile
+const profile = app.packageManager.getProfile('http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient');
+
+// Get a value set
+const valueSet = app.packageManager.getValueSet('http://hl7.org/fhir/ValueSet/observation-status');
+
+// Get a code system
+const codeSystem = app.packageManager.getCodeSystem('http://loinc.org');
+
+// Get base resource definitions
+const baseResources = app.packageManager.getBaseResourceDefinitions();
+// Returns: Map of resourceType -> StructureDefinition
+```
+
+## File System Structure
+
+Packages are stored in the following structure:
+
+```
+my-fhir-server/
+├── packages/                           # Package storage
+│   ├── hl7.fhir.r4.core-4.0.1.tgz    # Downloaded packages
+│   ├── hl7.fhir.us.core-7.0.0.tgz
+│   └── ...
+└── src/
+    └── server.js                       # Server configuration
+```
+
 
 ## Troubleshooting
 
-### Package Download Issues
+### Package Download Fails
 
-**Problem**: Package download fails
-```
-❌ Failed to download package hl7.fhir.r4.core: Failed to fetch package metadata: 404
-```
+**Symptoms:**
+- Error message: "Failed to download package"
+- Server fails to start
 
-**Solutions**:
-1. Check internet connectivity
-2. Verify package name and version exist
-3. Try alternative registry: `https://packages.fhir.org`
+**Solutions:**
+1. Check network connectivity
+2. Verify the package name and version exist
+3. Try using a different download mode (npmRegistry vs remoteUrl)
 4. Download manually and place in `packages/` directory
 
-### Package Loading Issues
+### Package Not Loading
 
-**Problem**: Package not loading
-```
-Error loading package: Invalid package structure
-```
+**Symptoms:**
+- Package downloads but resources aren't available
+- Profiles not showing in metadata
 
-**Solutions**:
-1. Verify `.tgz` file is not corrupted
-2. Check package contains `package.json`
-3. Ensure package contains valid FHIR JSON resources
-4. Check file permissions on `packages/` directory
+**Solutions:**
+1. Check the package `.tgz` file isn't corrupted
+2. Verify the package contains expected FHIR resources
+3. Check console logs for parsing errors
+4. Ensure package.json exists in the tarball
 
-### Network Proxy Issues
+### Profiles Not Validating
 
-If behind a corporate proxy:
+**Symptoms:**
+- Resources pass validation despite profile constraints
+- Validator not recognizing profiles
 
-```javascript
-// Set proxy environment variables before starting
-process.env.HTTP_PROXY = 'http://proxy.example.com:8080';
-process.env.HTTPS_PROXY = 'http://proxy.example.com:8080';
-```
+**Solutions:**
+1. Ensure the package containing the profile is loaded
+2. Check that validation.strict is enabled
+3. Verify the profile URL matches exactly
+4. Check profile dependencies are also loaded
 
-### Cache Management
+## Manual Package Management
 
-To force re-download of packages:
+If automatic downloading isn't suitable, you can manually manage packages:
 
+1. Download the package `.tgz` file
+2. Place it in the `packages/` directory
+3. Name it as: `{package-name}-{version}.tgz`
+4. The framework will load it on startup
+
+Example:
 ```bash
-# Remove cached package
-rm packages/hl7.fhir.r4.core.tgz
+# Download package manually
+curl -L https://packages2.fhir.org/packages/hl7.fhir.r4.core/4.0.1 \
+  -o packages/hl7.fhir.r4.core-4.0.1.tgz
 
-# Restart server - package will be re-downloaded
+# Start server - package will be loaded
 bun run dev
 ```
 
+## Performance Considerations
+
+### Caching
+
+- Packages are downloaded once and cached as `.tgz` files
+- Extracted content is loaded into memory on startup
+- No re-download on server restart unless package is deleted
+
+### Memory Usage
+
+- Large packages (like R4 Core) can use significant memory
+- Consider loading only necessary packages
+- Profile validation adds overhead
+
+### Startup Time
+
+- First start with package downloads may be slow
+- Subsequent starts are faster (packages cached)
+- Loading many packages increases startup time
+
 ## Best Practices
 
-### 1. Version Pinning
+1. **Version Pinning**: Always specify exact versions for reproducibility
+2. **Minimal Packages**: Only load packages you actually need
+3. **Registry Choice**: Use get-ig.org for official HL7 packages
+4. **Testing**: Test with packages in development before production
+5. **Documentation**: Document which profiles your server supports
+6. **Validation**: Enable strict validation when using profiles
 
-Always specify exact versions for production:
-```javascript
-packages: {
-  list: [
-    'hl7.fhir.r4.core@4.0.1',  // Good - exact version
-    // 'hl7.fhir.r4.core'       // Avoid - may change
-  ]
-}
-```
+## Future Enhancements
 
-### 2. Offline Development
+Planned improvements to package management:
 
-For offline development, download packages once and commit to version control:
-```bash
-# Download packages
-bun run dev  # Downloads packages on first run
-
-# Commit packages directory
-git add packages/
-git commit -m "Add FHIR packages for offline development"
-```
-
-### 3. Package Selection
-
-Only include packages you need:
-- Start with core package for your FHIR version
-- Add regional profiles if applicable
-- Add clinical IGs as needed
-
-### 4. Testing
-
-Test with packages in development:
-```javascript
-// development.js
-packages: {
-  list: [
-    'hl7.fhir.r4.core@4.0.1',
-    'my.custom.ig@dev'  // Development version
-  ]
-}
-
-// production.js
-packages: {
-  list: [
-    'hl7.fhir.r4.core@4.0.1',
-    'my.custom.ig@1.0.0'  // Stable version
-  ]
-}
-```
-
-## Advanced Topics
-
-### Custom Registry
-
-To use a custom package registry:
-
-```javascript
-packages: {
-  defaultRegistry: 'https://my-registry.example.com',
-  list: ['my.custom.package@1.0.0']
-}
-```
-
-### Package Development
-
-To use local packages during development:
-
-1. Create package structure:
-```bash
-my-package/
-├── package.json
-└── StructureDefinition-MyProfile.json
-```
-
-2. Create tarball:
-```bash
-tar -czf my-package.tgz -C my-package .
-```
-
-3. Place in packages directory:
-```bash
-cp my-package.tgz packages/
-```
-
-### Performance Considerations
-
-- **Initial Load**: First server start may be slower due to package download
-- **Caching**: Subsequent starts use cached packages (fast)
-- **Memory**: Large packages increase memory usage
-- **Indexing**: More packages = longer indexing time
-
-### Security Considerations
-
-- **Package Integrity**: Verify package checksums when possible
-- **Registry Security**: Use HTTPS registries only
-- **Version Control**: Pin versions to avoid unexpected changes
-- **Review Changes**: Review package updates before upgrading
-
-## Examples
-
-### Minimal R4 Server
-```javascript
-const app = new Atomic({
-  packages: {
-    list: ['hl7.fhir.r4.core@4.0.1']
-  }
-});
-```
-
-### US Core Compliant Server
-```javascript
-const app = new Atomic({
-  packages: {
-    list: [
-      'hl7.fhir.r4.core@4.0.1',
-      'hl7.fhir.us.core@5.0.1'
-    ]
-  }
-});
-```
-
-### Multi-Region Server
-```javascript
-const app = new Atomic({
-  packages: {
-    list: [
-      'hl7.fhir.r4.core@4.0.1',
-      'hl7.fhir.us.core@5.0.1',
-      'hl7.fhir.ca.baseline@1.0.0',
-      'hl7.fhir.au.base@4.1.0'
-    ]
-  }
-});
-```
-
-## Conclusion
-
-The Atomic Framework's package management system provides seamless integration with the FHIR ecosystem, enabling developers to quickly build compliant FHIR servers with automatic access to standard profiles, value sets, and other conformance resources.
+- Package dependency resolution
+- Incremental loading for faster startup
+- Package validation and integrity checks
+- Support for custom package registries
+- Package update notifications
+- CLI commands for package management
