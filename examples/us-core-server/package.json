@@ -4,10 +4,16 @@
   "description": "US Core v8.0.0 server with direct URL download",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/server.js",
-    "start": "bun src/server.js"
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@atomic-fhir/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
   }
 }

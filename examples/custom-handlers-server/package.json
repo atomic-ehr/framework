@@ -4,11 +4,16 @@
   "description": "FHIR server demonstrating custom resource handlers",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/server.js",
-    "start": "bun src/server.js",
-    "test": "bun test"
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@atomic-fhir/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
   }
 }
