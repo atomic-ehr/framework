@@ -1,0 +1,24 @@
+{
+  "name": "@atomic-fhir/module-ips",
+  "version": "1.0.0",
+  "description": "International Patient Summary (IPS) module for Atomic FHIR",
+  "type": "module",
+  "main": "src/module.ts",
+  "types": "src/module.ts",
+  "keywords": [
+    "fhir",
+    "ips",
+    "international-patient-summary",
+    "atomic-fhir",
+    "module"
+  ],
+  "dependencies": {
+    "@atomic-fhir/core": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "author": "",
+  "license": "MIT"
+}
