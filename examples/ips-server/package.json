@@ -1,0 +1,18 @@
+{
+  "name": "ips-server",
+  "version": "1.0.0",
+  "description": "Example FHIR server with IPS module and dependency injection",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@atomic-fhir/core": "workspace:*",
+    "@atomic-fhir/module-ips": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}
