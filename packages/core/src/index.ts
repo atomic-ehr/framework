@@ -2,6 +2,7 @@
 import Atomic from './core/atomic.js';
 
 export { Atomic };
+export type { AtomicModuleConfig, AtomicModule } from './core/atomic-module.js';
 export { defineResource } from './core/resource.js';
 export { defineOperation } from './core/operation.js';
 export { defineMiddleware } from './core/middleware.js';

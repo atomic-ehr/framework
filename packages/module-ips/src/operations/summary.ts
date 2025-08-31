@@ -43,6 +43,7 @@ export default defineOperation({
   
   async handler(req, context) {
     const patientId = req.params.id;
+    console.log("heeeloooo");
     
     return {
       status: 200,

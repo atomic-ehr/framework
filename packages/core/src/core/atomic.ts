@@ -74,6 +74,7 @@ class Atomic {
         subscription: false,
         ...config.features
       },
+      modules: config.modules,
       autoload: (() => {
         if (config.autoload === false) {
           return { enabled: false };
@@ -711,11 +712,38 @@ class Atomic {
   }
 
   async start(options: StartOptions = {}): Promise<any> {
+    // Collect packages from modules and main config
+    const allPackages: any[] = [];
+    
+    // Add packages from main config
+    if ((this.config.packages as any)?.list?.length > 0) {
+      allPackages.push(...(this.config.packages as any).list);
+    }
+    
+    // Collect packages from modules
+    if (this.config.modules) {
+      console.log(`\n📦 Collecting packages from ${Object.keys(this.config.modules).length} modules...`);
+      for (const [moduleName, module] of Object.entries(this.config.modules)) {
+        if (module.packages && module.packages.length > 0) {
+          console.log(`   • Module '${moduleName}': ${module.packages.length} packages`);
+          allPackages.push(...module.packages);
+        }
+      }
+    }
+    
     // Download and load FHIR packages if enabled
     if (options.packages !== false && (this.config.packages as any)?.enabled) {
-      // Download packages from registry if specified
-      if ((this.config.packages as any)?.list?.length > 0) {
-        await this.packageManager.downloadPackages((this.config.packages as any).list);
+      // Download all collected packages
+      if (allPackages.length > 0) {
+        // Deduplicate packages by package name and version
+        const uniquePackages = Array.from(
+          new Map(
+            allPackages.map(pkg => [`${pkg.package}@${pkg.version || 'latest'}`, pkg])
+          ).values()
+        );
+        
+        console.log(`\n📥 Downloading ${uniquePackages.length} unique packages...`);
+        await this.packageManager.downloadPackages(uniquePackages);
       }
       
       // Load packages from disk

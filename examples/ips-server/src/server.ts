@@ -1,17 +1,14 @@
-import { Atomic } from '@atomic-fhir/core';
-import type { AtomicConfig } from '@atomic-fhir/core';
-import {Module as ipsModule} from '@atomic-fhir/module-ips';
+import { Atomic, type AtomicConfig } from '@atomic-fhir/core';
+import { IPSModule } from '@atomic-fhir/module-ips';
 
 // Create server with basic configuration
 const app = new Atomic({
   server: {
     name: 'IPS-Enabled FHIR Server',
-    version: '1.0.0',
-    fhirVersion: '4.0.1',
     port: 3010
   },
-  modules: {
-    "ips": new ipsModule({foo: "bar"})
+  modules: { 
+    ips: new IPSModule({version: '1.0.0'}) 
   },
   // Start with base R4 Core package
   packages: [
@@ -26,7 +23,7 @@ const app = new Atomic({
 const server = await app.start();
 
 console.log(`
-🚀 IPS-Enabled FHIR Server running at http://localhost:3000
+🚀 IPS-Enabled FHIR Server running at http://localhost:3010
 
 Available endpoints:
   - GET  /metadata                    - Server capabilities

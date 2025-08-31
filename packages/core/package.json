@@ -3,40 +3,12 @@
   "version": "0.1.0",
   "description": "Core framework for Atomic FHIR - a FHIR-native web framework",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./atomic": {
-      "import": "./dist/core/atomic.js",
-      "types": "./dist/core/atomic.d.ts"
-    },
-    "./resource": {
-      "import": "./dist/core/resource.js",
-      "types": "./dist/core/resource.d.ts"
-    },
-    "./operation": {
-      "import": "./dist/core/operation.js",
-      "types": "./dist/core/operation.d.ts"
-    },
-    "./middleware": {
-      "import": "./dist/core/middleware.js",
-      "types": "./dist/core/middleware.d.ts"
-    },
-    "./hook": {
-      "import": "./dist/core/define-hook.js",
-      "types": "./dist/core/define-hook.d.ts"
-    },
-    "./storage": {
-      "import": "./dist/storage/storage-manager.js",
-      "types": "./dist/storage/storage-manager.d.ts"
-    },
-    "./adapters/sqlite": {
-      "import": "./dist/storage/sqlite-adapter.js",
-      "types": "./dist/storage/sqlite-adapter.d.ts"
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
     }
   },
   "files": [

@@ -3,6 +3,8 @@
 
 /// <reference types="bun" />
 
+import { AtomicModule } from "../core/atomic-module";
+
 // ============================================================================
 // Core Server Types
 // ============================================================================
@@ -12,6 +14,7 @@
  */
 export interface AtomicConfig {
   server?: ServerConfig;
+  modules?: Record<string, AtomicModule>;
   storage?: StorageConfig;
   validation?: ValidationConfig;
   features?: FeaturesConfig;
