@@ -45,8 +45,6 @@ export default defineOperation({
   async handler(req, context) {
 
     const { storage } = context;
-    console.log("req", req);
-    console.log("context", context);
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     const patientId = pathParts[pathParts.length - 2];

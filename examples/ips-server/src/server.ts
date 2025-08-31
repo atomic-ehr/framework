@@ -14,7 +14,7 @@ const app = new Atomic({
     }
   },
   modules: { 
-    ips: new IPSModule({version: '1.0.0'}) 
+    ips: new IPSModule({version: '1.0.1'}) 
   },
   // Start with base R4 Core package
   packages: [

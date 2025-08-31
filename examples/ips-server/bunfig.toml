@@ -1,0 +1,18 @@
+# Bun configuration for development
+# This tells Bun which paths to watch for changes
+
+[test]
+# Test configuration
+preload = ["./src/server.ts"]
+
+[run]
+# Auto-reload configuration
+# Watch these paths for changes when using --watch flag
+watch = [
+  "src/**/*.ts",
+  "../../packages/module-ips/src/**/*.ts", 
+  "../../packages/core/src/**/*.ts"
+]
+
+# Hot reload for better development experience
+hot = true

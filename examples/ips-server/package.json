@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run src/server.ts",
+    "dev:watch": "bun --watch run src/server.ts",
+    "watch": "bun --watch --hot run src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
