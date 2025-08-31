@@ -1,7 +1,7 @@
-import type { AtomicModule } from '@atomic-fhir/core';
+import { AtomicModule } from '@atomic-fhir/core';
 
 interface IPSModuleConfig {
-  version: string;
+  version?: string;
 }
 
 class IPSModule implements AtomicModule {

@@ -7,6 +7,12 @@ const app = new Atomic({
     name: 'IPS-Enabled FHIR Server',
     port: 3010
   },
+  storage: {
+    adapter: 'sqlite',
+    config: {
+      database: './data.db',
+    }
+  },
   modules: { 
     ips: new IPSModule({version: '1.0.0'}) 
   },

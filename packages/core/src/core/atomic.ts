@@ -9,7 +9,8 @@ import { CapabilityStatement } from './capability-statement.js';
 import { FilesystemLoader } from './filesystem-loader.js';
 import { PackageManager } from './package-manager.js';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import type { 
   AtomicConfig, 
   ResourceDefinition, 
@@ -510,19 +511,13 @@ class Atomic {
     }
 
     try {
-      // Only try to parse JSON if there's a body
-      let params: any = {};
-      const contentLength = req.headers.get('content-length');
-      if (contentLength && contentLength !== '0') {
-        params = await req.json();
-      }
       const context: HandlerContext = {
         storage: this.storage,
         hooks: this.hooks,
         validator: this.validator,
         config: this.config
       };
-      const result = await operation.handler(params, context);
+      const result = await operation.handler(req, context);
 
       return {
         status: 200,
@@ -544,12 +539,6 @@ class Atomic {
     }
 
     try {
-      // Only try to parse JSON if there's a body
-      let params: any = {};
-      const contentLength = req.headers.get('content-length');
-      if (contentLength && contentLength !== '0') {
-        params = await req.json();
-      }
       const resource = await this.storage.read(resourceType, id);
       if (!resource) {
         return { status: 404, body: JSON.stringify({ error: 'Resource not found' }) };
@@ -561,7 +550,7 @@ class Atomic {
         validator: this.validator,
         config: this.config
       };
-      const result = await operation.handler({ ...params, resource }, context);
+      const result = await operation.handler(req, context);
 
       return {
         status: 200,
@@ -583,19 +572,13 @@ class Atomic {
     }
 
     try {
-      // Only try to parse JSON if there's a body (for POST requests)
-      let params: any = {};
-      const contentLength = req.headers.get('content-length');
-      if (contentLength && contentLength !== '0') {
-        params = await req.json();
-      }
       const context: HandlerContext = {
         storage: this.storage,
         hooks: this.hooks,
         validator: this.validator,
         config: this.config
       };
-      const result = await operation.handler(params, context);
+      const result = await operation.handler(req, context);
 
       return {
         status: 200,
@@ -711,6 +694,149 @@ class Atomic {
     }
   }
 
+  /**
+   * Auto-discover and load components for a module
+   * This enables auto-discovery for modules that don't extend BaseAtomicModule
+   */
+  private async autoDiscoverModuleComponents(moduleName: string, module: any): Promise<void> {
+    // Skip if module already has components loaded (e.g., BaseAtomicModule)
+    if (module.resources?.size > 0 || module.operations?.length > 0 || 
+        module.hooks?.length > 0 || module.middleware?.length > 0) {
+      return;
+    }
+
+    // Try to detect module path based on module name
+    // First, check if module has a name property we can use
+    const moduleNameToCheck = module.name || moduleName;
+    
+    let modulePath: string | undefined;
+    
+    // Try to resolve the module using Node's resolution algorithm (handles workspaces)
+    try {
+      const possibleModuleNames = [
+        `@atomic-fhir/${moduleNameToCheck}`,
+        moduleNameToCheck
+      ];
+      
+      for (const modName of possibleModuleNames) {
+        try {
+          // Try to resolve the module path
+          const resolved = require.resolve(modName);
+          // Get the directory containing the module
+          const moduleDir = dirname(resolved);
+          
+          // Check if this looks like a source directory
+          if (moduleDir.endsWith('/src') || moduleDir.endsWith('/dist')) {
+            modulePath = moduleDir;
+          } else {
+            // Try src or dist subdirectories
+            if (existsSync(join(moduleDir, 'src'))) {
+              modulePath = join(moduleDir, 'src');
+            } else if (existsSync(join(moduleDir, 'dist'))) {
+              modulePath = join(moduleDir, 'dist');
+            } else {
+              modulePath = moduleDir;
+            }
+          }
+          
+          if (modulePath) break;
+        } catch (e) {
+          // Module not found with this name, try next
+        }
+      }
+    } catch (e) {
+      // Fallback to manual path detection
+    }
+    
+    // Fallback: Look for module in various locations
+    if (!modulePath) {
+      const cwd = process.cwd();
+      const possiblePaths = [
+        // Direct package paths (for monorepo development - check parent directories too)
+        join(cwd, 'packages', moduleNameToCheck, 'src'),
+        join(cwd, 'packages', moduleNameToCheck, 'dist'),
+        join(cwd, 'packages', moduleNameToCheck),
+        join(cwd, '..', '..', 'packages', moduleNameToCheck, 'src'),
+        join(cwd, '..', '..', 'packages', moduleNameToCheck, 'dist'),
+        join(cwd, '..', '..', 'packages', moduleNameToCheck),
+        
+        // Node modules paths (for installed packages)
+        join(cwd, 'node_modules', '@atomic-fhir', moduleNameToCheck, 'src'),
+        join(cwd, 'node_modules', '@atomic-fhir', moduleNameToCheck, 'dist'),
+        join(cwd, 'node_modules', '@atomic-fhir', moduleNameToCheck),
+        
+        // Try without @atomic-fhir scope
+        join(cwd, 'node_modules', moduleNameToCheck, 'src'),
+        join(cwd, 'node_modules', moduleNameToCheck, 'dist'),
+        join(cwd, 'node_modules', moduleNameToCheck),
+      ];
+
+      for (const path of possiblePaths) {
+        if (existsSync(path)) {
+          // Check if at least one of the component directories exists
+          const hasComponents = 
+            existsSync(join(path, 'operations')) ||
+            existsSync(join(path, 'resources')) ||
+            existsSync(join(path, 'hooks')) ||
+            existsSync(join(path, 'middleware'));
+          
+          if (hasComponents) {
+            modulePath = path;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!modulePath) {
+      // Module path not found, skip auto-discovery
+      console.log(`   • No suitable path found for module '${moduleName}' auto-discovery`);
+      return;
+    }
+
+    console.log(`   • Auto-discovering components for module '${moduleName}' from ${modulePath}`);
+
+    const loader = new FilesystemLoader(modulePath, {
+      resources: 'resources',
+      operations: 'operations',
+      hooks: 'hooks',
+      middleware: 'middleware'
+    });
+
+    try {
+      // Load all components
+      const [resources, operations, hooks, middleware] = await Promise.all([
+        loader.loadResources(),
+        loader.loadOperations(),
+        loader.loadHooks(),
+        loader.loadMiddleware()
+      ]);
+
+      // Attach loaded components to module object
+      if (!module.resources) module.resources = new Map();
+      if (!module.operations) module.operations = [];
+      if (!module.hooks) module.hooks = [];
+      if (!module.middleware) module.middleware = [];
+
+      // Add discovered components
+      for (const [resourceType, definition] of resources) {
+        module.resources.set(resourceType, definition);
+      }
+      module.operations.push(...operations);
+      module.hooks.push(...hooks);
+      module.middleware.push(...middleware);
+
+      // Log discovery results
+      const totalFound = resources.size + operations.length + hooks.length + middleware.length;
+      if (totalFound > 0) {
+        console.log(`   • Auto-discovered ${totalFound} components for module '${moduleName}'`);
+      }
+    } catch (error) {
+      // Silently skip if auto-discovery fails
+      console.debug(`   • Auto-discovery skipped for module '${moduleName}':`, error);
+    }
+  }
+
   async start(options: StartOptions = {}): Promise<any> {
     // Collect packages from modules and main config
     const allPackages: any[] = [];
@@ -720,13 +846,53 @@ class Atomic {
       allPackages.push(...(this.config.packages as any).list);
     }
     
-    // Collect packages from modules
+    // Initialize and load modules
     if (this.config.modules) {
-      console.log(`\n📦 Collecting packages from ${Object.keys(this.config.modules).length} modules...`);
+      console.log(`\n🔧 Initializing ${Object.keys(this.config.modules).length} modules...`);
       for (const [moduleName, module] of Object.entries(this.config.modules)) {
+        // Initialize module if it has an initialize method (BaseAtomicModule)
+        if ('initialize' in module && typeof module.initialize === 'function') {
+          console.log(`   • Initializing module '${moduleName}'...`);
+          await module.initialize();
+        }
+        
+        // Auto-discover module components if not already loaded
+        // This works for modules that don't extend BaseAtomicModule
+        await this.autoDiscoverModuleComponents(moduleName, module);
+        
+        // Collect packages from module
         if (module.packages && module.packages.length > 0) {
           console.log(`   • Module '${moduleName}': ${module.packages.length} packages`);
           allPackages.push(...module.packages);
+        }
+        
+        // Register module components
+        if (module.resources && module.resources.size > 0) {
+          console.log(`   • Module '${moduleName}': Registering ${module.resources.size} resources`);
+          for (const [resourceType, definition] of module.resources) {
+            this.resources.register(resourceType, definition);
+          }
+        }
+        
+        if (module.operations && module.operations.length > 0) {
+          console.log(`   • Module '${moduleName}': Registering ${module.operations.length} operations`);
+          for (const operation of module.operations) {
+            this.operations.register(operation);
+          }
+        }
+        
+        if (module.hooks && module.hooks.length > 0) {
+          console.log(`   • Module '${moduleName}': Registering ${module.hooks.length} hooks`);
+          for (const hook of module.hooks) {
+            this.hooks.register(hook);
+          }
+        }
+        
+        if (module.middleware && module.middleware.length > 0) {
+          console.log(`   • Module '${moduleName}': Registering ${module.middleware.length} middleware`);
+          for (const mw of module.middleware) {
+            this.middleware.use(mw);
+          }
         }
       }
     }
