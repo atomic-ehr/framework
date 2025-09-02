@@ -60,3 +60,4 @@ examples/*/data.db
 Thumbs.db
 .Spotlight-V100
 .Trashes
+.packages
