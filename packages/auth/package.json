@@ -1,0 +1,76 @@
+{
+	"name": "@atomic-fhir/auth",
+	"version": "0.1.0",
+	"description": "Authentication and authorization module for Atomic FHIR framework",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"types": "./src/index.ts"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"keywords": [
+		"fhir",
+		"healthcare",
+		"authentication",
+		"authorization",
+		"auth",
+		"framework",
+		"atomic",
+		"bun",
+		"jwt",
+		"oauth",
+		"smart-on-fhir"
+	],
+	"author": "Atomic FHIR Team",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/atomic-fhir/framework.git",
+		"directory": "packages/auth"
+	},
+	"bugs": {
+		"url": "https://github.com/atomic-fhir/framework/issues"
+	},
+	"homepage": "https://github.com/atomic-fhir/framework#readme",
+	"dependencies": {
+		"bcrypt": "^6.0.0",
+		"jsonwebtoken": "^9.0.2",
+		"uuid": "^11.1.0"
+	},
+	"peerDependencies": {
+		"@atomic-fhir/core": "workspace:*",
+		"bun": ">=1.0.0"
+	},
+	"engines": {
+		"bun": ">=1.0.0",
+		"node": ">=18.0.0"
+	},
+	"scripts": {
+		"build": "bun build:ts",
+		"build:ts": "tsc",
+		"dev": "tsc --watch",
+		"test": "bun test",
+		"test:watch": "bun test --watch",
+		"typecheck": "tsc --noEmit",
+		"check": "biome check --write ./src",
+		"prepublishOnly": "bun run build && bun test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.2",
+		"@types/bcrypt": "^6.0.0",
+		"@types/bun": "latest",
+		"@types/jsonwebtoken": "^9.0.5",
+		"@types/node": "^22",
+		"@types/uuid": "^10.0.0",
+		"typescript": "^5.3.0"
+	}
+}

@@ -83,10 +83,15 @@ export class Router {
     };
   }
 
-  async handle(req: Request): Promise<HandlerResponse> {
+  async handle(req: Request, context?: any): Promise<HandlerResponse> {
     const url = new URL(req.url);
     const method = req.method.toUpperCase();
     const pathname = url.pathname;
+
+    // Store context on request for handler access
+    if (context) {
+      (req as any).context = context;
+    }
 
     // Create a mock response object for find-my-way
     const res = {};
@@ -111,8 +116,18 @@ export class Router {
         body: JSON.stringify({ error: 'No response from handler' })
       };
     } catch (error) {
+      // Handle authorization errors with proper HTTP status
+      let status = 500;
+      if ((error as any)?.statusCode) {
+        status = (error as any).statusCode;
+      } else if ((error as any)?.name === 'AuthorizationError') {
+        status = 403;
+      } else if ((error as any)?.name === 'AuthenticationError') {
+        status = 401;
+      }
+      
       return {
-        status: 500,
+        status,
         body: JSON.stringify({ error: (error as Error).message })
       };
     }

@@ -17,6 +17,8 @@ export interface AtomicConfig {
   features?: FeaturesConfig;
   autoload?: AutoloadConfig | false;
   packages?: PackagesConfig | PackageDefinition[] | false;
+  middleware?: MiddlewareDefinition[];
+  hooks?: HookDefinition[];
 }
 
 export interface ServerConfig {
@@ -276,7 +278,7 @@ export declare class Atomic {
   
   registerResource(type: string, definition: ResourceDefinition): void;
   registerOperation(definition: OperationDefinition): void;
-  registerMiddleware?(middleware: MiddlewareDefinition): void; // Optional - not yet implemented
+  registerMiddleware(middleware: MiddlewareDefinition): void;
   registerHook(hook: HookDefinition): void;
   
   autoload(basePath?: string): Promise<void>;

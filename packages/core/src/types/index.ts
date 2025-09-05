@@ -20,6 +20,8 @@ export interface AtomicConfig {
   features?: FeaturesConfig;
   autoload?: AutoloadConfig | false;
   packages?: PackagesConfig | PackageDefinition[] | false;
+  middleware?: MiddlewareDefinition[];
+  hooks?: HookDefinition[];
 }
 
 export interface ServerConfig {

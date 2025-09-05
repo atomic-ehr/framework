@@ -1,0 +1,9 @@
+{
+  "name": "fhir-canonical-manager-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "hl7.fhir.r4.core": "^4.0.1",
+    "hl7.fhir.uv.ips": "^2.0.0-ballot"
+  }
+}

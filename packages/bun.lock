@@ -1,0 +1,21 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "fhir-canonical-manager-workspace",
+      "dependencies": {
+        "hl7.fhir.r4.core": "^4.0.1",
+        "hl7.fhir.uv.ips": "^2.0.0-ballot",
+      },
+    },
+  },
+  "packages": {
+    "hl7.fhir.r4.core": ["hl7.fhir.r4.core@4.0.1", "http://fs.get-ig.org/-/hl7.fhir.r4.core-4.0.1.tgz", {}, ""],
+
+    "hl7.fhir.uv.extensions.r4": ["hl7.fhir.uv.extensions.r4@5.1.0", "https://fs.get-ig.org/-/hl7.fhir.uv.extensions.r4-5.1.0.tgz", { "dependencies": { "hl7.fhir.r4.core": "4.0.1" } }, ""],
+
+    "hl7.fhir.uv.ips": ["hl7.fhir.uv.ips@2.0.0-ballot", "http://fs.get-ig.org/-/hl7.fhir.uv.ips-2.0.0-ballot.tgz", { "dependencies": { "hl7.fhir.r4.core": "4.0.1", "hl7.fhir.uv.extensions.r4": "5.1.0", "hl7.terminology.r4": "6.0.2" } }, ""],
+
+    "hl7.terminology.r4": ["hl7.terminology.r4@6.0.2", "https://fs.get-ig.org/-/hl7.terminology.r4-6.0.2.tgz", { "dependencies": { "hl7.fhir.r4.core": "4.0.1" } }, ""],
+  }
+}

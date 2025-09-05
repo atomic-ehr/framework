@@ -1,0 +1,14 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "fhir-canonical-manager-workspace",
+      "dependencies": {
+        "hl7.fhir.r4.core": "^4.0.1",
+      },
+    },
+  },
+  "packages": {
+    "hl7.fhir.r4.core": ["hl7.fhir.r4.core@4.0.1", "http://fs.get-ig.org/-/hl7.fhir.r4.core-4.0.1.tgz", {}, ""],
+  }
+}

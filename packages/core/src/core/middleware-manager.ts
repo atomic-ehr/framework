@@ -20,9 +20,15 @@ export class MiddlewareManager {
     this.middleware.push(middleware);
   }
 
+  register(middleware: MiddlewareDefinition): void {
+    this.middleware.push(middleware);
+  }
+
   async executeBefore(context: HandlerContext & { req: Request; resourceType?: string; operation?: string }): Promise<void> {
+    console.log(`[MIDDLEWARE] Executing ${this.middleware.length} middleware before handlers`);
     for (const mw of this.middleware) {
       if (mw.before && this.shouldExecute(mw, context)) {
+        console.log(`[MIDDLEWARE] Executing middleware: ${mw.name || 'unnamed'}`);
         await mw.before(context.req, context);
       }
     }

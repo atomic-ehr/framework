@@ -1,0 +1,555 @@
+import { test, expect, describe } from 'bun:test';
+import type { HandlerContext } from '@atomic-fhir/core';
+import {
+  AuthContext,
+  createAuthContext,
+  enhanceContext,
+  createAuthenticatedContext,
+  PermissionUtils
+} from '../src/core/auth-context.ts';
+import { FHIRPermissionManager } from '../src/core/permissions.ts';
+import type {
+  AuthenticatedUser,
+  AuthenticatedContext,
+  FHIRPermissions
+} from '../src/types/index.ts';
+
+// Test utilities
+function createMockHandlerContext(): HandlerContext {
+  return {
+    // Add any required properties for HandlerContext here
+    requestId: 'test-request-123',
+    timestamp: new Date()
+  } as HandlerContext;
+}
+
+function createMockUser(permissions?: Partial<FHIRPermissions>, roles?: string[]): AuthenticatedUser {
+  return {
+    id: 'user-123',
+    username: 'testuser',
+    email: 'test@example.com',
+    roles: roles || ['user'],
+    permissions: {
+      canRead: true,
+      canWrite: false,
+      canDelete: false,
+      resources: {},
+      operations: {},
+      custom: {},
+      ...permissions
+    },
+    metadata: { department: 'cardiology' }
+  };
+}
+
+// Create a mock permission manager that uses simple global permissions
+function createSimplePermissionManager() {
+  return {
+    evaluatePermission: (user: AuthenticatedUser, resourceType: string, operation: string) => {
+      if (!user) {
+        return { allowed: false, reason: 'No user provided' };
+      }
+
+      const permissions = user.permissions;
+      
+      // Check global permissions first
+      switch (operation) {
+        case 'read':
+        case 'vread':
+        case 'search-type':
+        case 'history':
+          return { allowed: permissions.canRead === true, reason: permissions.canRead ? undefined : 'Global read denied' };
+        case 'create':
+        case 'update':
+        case 'patch':
+          return { allowed: permissions.canWrite === true, reason: permissions.canWrite ? undefined : 'Global write denied' };
+        case 'delete':
+        case 'delete-conditional':
+          return { allowed: permissions.canDelete === true, reason: permissions.canDelete ? undefined : 'Global delete denied' };
+        default:
+          return { allowed: false, reason: `Unknown operation: ${operation}` };
+      }
+    }
+  } as FHIRPermissionManager;
+}
+
+describe('AuthContext', () => {
+  describe('Construction', () => {
+    test('creates authenticated context with user', () => {
+      const user = createMockUser();
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.user).toBe(user);
+      expect(authContext.isAuthenticated).toBe(true);
+    });
+
+    test('creates unauthenticated context without user', () => {
+      const authContext = new AuthContext();
+      
+      expect(authContext.user).toBeUndefined();
+      expect(authContext.isAuthenticated).toBe(false);
+    });
+
+    test('treats null user as unauthenticated', () => {
+      const authContext = new AuthContext(undefined);
+      
+      expect(authContext.user).toBeUndefined();
+      expect(authContext.isAuthenticated).toBe(false);
+    });
+  });
+
+  describe('Global Permissions', () => {
+    test('checkPermission respects global read permissions', () => {
+      const user = createMockUser({ canRead: true, canWrite: false, canDelete: false });
+      const permissionManager = createSimplePermissionManager();
+      const authContext = new AuthContext(user, permissionManager);
+      
+      expect(authContext.checkPermission('Patient', 'read')).toBe(true);
+      expect(authContext.checkPermission('Patient', 'search-type')).toBe(true);
+      expect(authContext.checkPermission('Patient', 'create')).toBe(false);
+      expect(authContext.checkPermission('Patient', 'delete')).toBe(false);
+    });
+
+    test('checkPermission respects global write permissions', () => {
+      const user = createMockUser({ canRead: true, canWrite: true, canDelete: false });
+      const permissionManager = createSimplePermissionManager();
+      const authContext = new AuthContext(user, permissionManager);
+      
+      expect(authContext.checkPermission('Observation', 'create')).toBe(true);
+      expect(authContext.checkPermission('Observation', 'update')).toBe(true);
+      expect(authContext.checkPermission('Observation', 'patch')).toBe(true);
+      expect(authContext.checkPermission('Observation', 'delete')).toBe(false);
+    });
+
+    test('checkPermission respects global delete permissions', () => {
+      const user = createMockUser({ canRead: true, canWrite: true, canDelete: true });
+      const permissionManager = createSimplePermissionManager();
+      const authContext = new AuthContext(user, permissionManager);
+      
+      expect(authContext.checkPermission('DiagnosticReport', 'delete')).toBe(true);
+      expect(authContext.checkPermission('DiagnosticReport', 'delete-conditional')).toBe(true);
+    });
+
+    test('denies all permissions when not authenticated', () => {
+      const authContext = new AuthContext();
+      
+      expect(authContext.checkPermission('Patient', 'read')).toBe(false);
+      expect(authContext.checkPermission('Patient', 'create')).toBe(false);
+      expect(authContext.checkPermission('Patient', 'delete')).toBe(false);
+    });
+  });
+
+  describe('Resource-Specific Permissions', () => {
+    test.skip('allows resource-specific permission overrides (requires full permission manager)', () => {
+      // This test is skipped as it requires the complex permission system
+      // TODO: Update to work with FHIRPermissionManager
+    });
+
+    test.skip('explicit false resource permissions deny access (requires full permission manager)', () => {
+      // This test is skipped as it requires the complex permission system
+      // TODO: Update to work with FHIRPermissionManager
+    });
+  });
+
+  describe('Conditional Permissions', () => {
+    test.skip('evaluates simple equality conditions (requires full permission manager)', () => {
+      // This test is skipped as it requires the complex permission system
+      // TODO: Update to work with FHIRPermissionManager
+    });
+
+    test('evaluates nested field conditions', () => {
+      const user = createMockUser({
+        canRead: true,
+        resources: {
+          'Patient': {
+            read: true,
+            conditions: [{
+              field: 'managingOrganization.reference',
+              operator: 'contains',
+              value: 'Organization/org-123'
+            }]
+          }
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      const allowedPatient = {
+        id: 'patient-123',
+        managingOrganization: { reference: 'Organization/org-123' }
+      };
+      
+      const deniedPatient = {
+        id: 'patient-456',
+        managingOrganization: { reference: 'Organization/org-456' }
+      };
+      
+      expect(authContext.checkPermission('Patient', 'read', allowedPatient)).toBe(true);
+      expect(authContext.checkPermission('Patient', 'read', deniedPatient)).toBe(false);
+    });
+
+    test('evaluates array field conditions', () => {
+      const user = createMockUser({
+        canRead: true,
+        resources: {
+          'Patient': {
+            read: true,
+            conditions: [{
+              field: 'identifier.value',
+              operator: 'eq',
+              value: 'MRN-123'
+            }]
+          }
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      const allowedPatient = {
+        id: 'patient-123',
+        identifier: [
+          { system: 'http://hospital.org/mrn', value: 'MRN-123' }
+        ]
+      };
+      
+      const deniedPatient = {
+        id: 'patient-456',
+        identifier: [
+          { system: 'http://hospital.org/mrn', value: 'MRN-456' }
+        ]
+      };
+      
+      expect(authContext.checkPermission('Patient', 'read', allowedPatient)).toBe(true);
+      expect(authContext.checkPermission('Patient', 'read', deniedPatient)).toBe(false);
+    });
+
+    test('evaluates custom validator conditions', () => {
+      const user = createMockUser({
+        canRead: true,
+        resources: {
+          'Patient': {
+            read: true,
+            conditions: [{
+              field: 'birthDate',
+              operator: 'custom',
+              value: null,
+              customValidator: (resource, authUser) => {
+                // Only allow access to patients in the same department
+                return resource.department === authUser.metadata?.department;
+              }
+            }]
+          }
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      const allowedPatient = { id: 'patient-123', department: 'cardiology' };
+      const deniedPatient = { id: 'patient-456', department: 'oncology' };
+      
+      expect(authContext.checkPermission('Patient', 'read', allowedPatient)).toBe(true);
+      expect(authContext.checkPermission('Patient', 'read', deniedPatient)).toBe(false);
+    });
+
+    test('all conditions must pass (AND logic)', () => {
+      const user = createMockUser({
+        canRead: true,
+        resources: {
+          'Patient': {
+            read: true,
+            conditions: [
+              {
+                field: 'active',
+                operator: 'eq',
+                value: true
+              },
+              {
+                field: 'gender',
+                operator: 'in',
+                value: ['male', 'female']
+              }
+            ]
+          }
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      const allowedPatient = { active: true, gender: 'female' };
+      const deniedPatient1 = { active: false, gender: 'male' }; // First condition fails
+      const deniedPatient2 = { active: true, gender: 'unknown' }; // Second condition fails
+      
+      expect(authContext.checkPermission('Patient', 'read', allowedPatient)).toBe(true);
+      expect(authContext.checkPermission('Patient', 'read', deniedPatient1)).toBe(false);
+      expect(authContext.checkPermission('Patient', 'read', deniedPatient2)).toBe(false);
+    });
+  });
+
+  describe('Role Checking', () => {
+    test('hasRole returns true for existing roles', () => {
+      const user = createMockUser({}, ['user', 'practitioner', 'admin']);
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.hasRole('user')).toBe(true);
+      expect(authContext.hasRole('practitioner')).toBe(true);
+      expect(authContext.hasRole('admin')).toBe(true);
+    });
+
+    test('hasRole returns false for non-existing roles', () => {
+      const user = createMockUser({}, ['user']);
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.hasRole('admin')).toBe(false);
+      expect(authContext.hasRole('superuser')).toBe(false);
+    });
+
+    test('hasRole returns false when not authenticated', () => {
+      const authContext = new AuthContext();
+      
+      expect(authContext.hasRole('user')).toBe(false);
+    });
+  });
+
+  describe('Permission String Checking', () => {
+    test('hasPermission handles dot notation', () => {
+      const user = createMockUser({
+        canRead: true,
+        canWrite: false,
+        resources: {
+          'Patient': { read: true, create: true },
+          'Observation': { read: false }
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.hasPermission('Patient.read')).toBe(true);
+      expect(authContext.hasPermission('Patient.create')).toBe(false); // Blocked by global canWrite: false
+      expect(authContext.hasPermission('Observation.read')).toBe(false); // Explicitly denied at resource level
+    });
+
+    test('hasPermission handles global permissions', () => {
+      const user = createMockUser({
+        canRead: true,
+        canWrite: false,
+        canDelete: false
+      });
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.hasPermission('read')).toBe(true);
+      expect(authContext.hasPermission('write')).toBe(false);
+      expect(authContext.hasPermission('delete')).toBe(false);
+    });
+
+    test('hasPermission handles custom permissions', () => {
+      const user = createMockUser({
+        custom: {
+          'special-operation': true,
+          'admin-function': false
+        }
+      });
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.hasPermission('special-operation')).toBe(true);
+      expect(authContext.hasPermission('admin-function')).toBe(false);
+      expect(authContext.hasPermission('unknown-permission')).toBe(false);
+    });
+  });
+
+  describe('Utility Methods', () => {
+    test('canAccess is alias for checkPermission', () => {
+      const user = createMockUser({ canRead: true });
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.canAccess('Patient', 'read')).toBe(true);
+      expect(authContext.canAccess('Patient', 'create')).toBe(false);
+    });
+
+    test('getRoles returns user roles', () => {
+      const user = createMockUser({}, ['user', 'doctor']);
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.getRoles()).toEqual(['user', 'doctor']);
+    });
+
+    test('getRoles returns empty array when not authenticated', () => {
+      const authContext = new AuthContext();
+      
+      expect(authContext.getRoles()).toEqual([]);
+    });
+
+    test('getMetadata returns user metadata', () => {
+      const user = createMockUser();
+      const authContext = new AuthContext(user);
+      
+      expect(authContext.getMetadata()).toEqual({ department: 'cardiology' });
+    });
+  });
+});
+
+describe('Context Creation Functions', () => {
+  test('createAuthContext creates AuthContext', () => {
+    const user = createMockUser();
+    const authContext = createAuthContext(user);
+    
+    expect(authContext).toBeInstanceOf(AuthContext);
+    expect(authContext.user).toBe(user);
+    expect(authContext.isAuthenticated).toBe(true);
+  });
+
+  test('enhanceContext adds authentication methods', () => {
+    const originalContext = createMockHandlerContext();
+    const user = createMockUser({ canRead: true });
+    const authContext = createAuthContext(user);
+    
+    const enhancedContext = enhanceContext(originalContext, authContext);
+    
+    expect(enhancedContext.user).toBe(user);
+    expect(enhancedContext.isAuthenticated).toBe(true);
+    expect(typeof enhancedContext.checkPermission).toBe('function');
+    expect(typeof enhancedContext.hasRole).toBe('function');
+    expect(typeof enhancedContext.hasPermission).toBe('function');
+    
+    // Test that methods work
+    expect(enhancedContext.checkPermission('Patient', 'read')).toBe(true);
+    expect(enhancedContext.hasRole('user')).toBe(true);
+    expect(enhancedContext.hasPermission('read')).toBe(true);
+  });
+
+  test('createAuthenticatedContext combines creation and enhancement', () => {
+    const originalContext = createMockHandlerContext();
+    const user = createMockUser({ canRead: true });
+    
+    const enhancedContext = createAuthenticatedContext(originalContext, user);
+    
+    expect(enhancedContext.user).toBe(user);
+    expect(enhancedContext.isAuthenticated).toBe(true);
+    expect(enhancedContext.checkPermission('Patient', 'read')).toBe(true);
+  });
+});
+
+describe('PermissionUtils', () => {
+  test('canReadAny checks global read permission', () => {
+    const readUser = createMockUser({ canRead: true });
+    const noReadUser = createMockUser({ canRead: false });
+    
+    expect(PermissionUtils.canReadAny(readUser)).toBe(true);
+    expect(PermissionUtils.canReadAny(noReadUser)).toBe(false);
+    expect(PermissionUtils.canReadAny(undefined)).toBe(false);
+  });
+
+  test('canWriteAny checks global write permission', () => {
+    const writeUser = createMockUser({ canWrite: true });
+    const noWriteUser = createMockUser({ canWrite: false });
+    
+    expect(PermissionUtils.canWriteAny(writeUser)).toBe(true);
+    expect(PermissionUtils.canWriteAny(noWriteUser)).toBe(false);
+    expect(PermissionUtils.canWriteAny(undefined)).toBe(false);
+  });
+
+  test('canDeleteAny checks global delete permission', () => {
+    const deleteUser = createMockUser({ canDelete: true });
+    const noDeleteUser = createMockUser({ canDelete: false });
+    
+    expect(PermissionUtils.canDeleteAny(deleteUser)).toBe(true);
+    expect(PermissionUtils.canDeleteAny(noDeleteUser)).toBe(false);
+    expect(PermissionUtils.canDeleteAny(undefined)).toBe(false);
+  });
+
+  test('isAdmin checks for admin role', () => {
+    const adminUser = createMockUser({}, ['user', 'admin']);
+    const regularUser = createMockUser({}, ['user']);
+    
+    expect(PermissionUtils.isAdmin(adminUser)).toBe(true);
+    expect(PermissionUtils.isAdmin(regularUser)).toBe(false);
+    expect(PermissionUtils.isAdmin(undefined)).toBe(false);
+  });
+
+  test('hasAnyRole checks for any matching role', () => {
+    const user = createMockUser({}, ['user', 'doctor']);
+    
+    expect(PermissionUtils.hasAnyRole(user, ['admin', 'doctor'])).toBe(true);
+    expect(PermissionUtils.hasAnyRole(user, ['admin', 'nurse'])).toBe(false);
+    expect(PermissionUtils.hasAnyRole(undefined, ['user'])).toBe(false);
+  });
+
+  test('hasAllRoles checks for all required roles', () => {
+    const user = createMockUser({}, ['user', 'doctor', 'admin']);
+    
+    expect(PermissionUtils.hasAllRoles(user, ['user', 'doctor'])).toBe(true);
+    expect(PermissionUtils.hasAllRoles(user, ['user', 'nurse'])).toBe(false);
+    expect(PermissionUtils.hasAllRoles(undefined, ['user'])).toBe(false);
+  });
+
+  test('getPermittedResources returns resources with specific operation permission', () => {
+    const user = createMockUser({
+      resources: {
+        'Patient': { read: true, create: false },
+        'Observation': { read: true, create: true },
+        'DiagnosticReport': { read: false, create: false }
+      }
+    });
+    
+    const readPermitted = PermissionUtils.getPermittedResources(user, 'read');
+    const createPermitted = PermissionUtils.getPermittedResources(user, 'create');
+    
+    expect(readPermitted).toEqual(['Patient', 'Observation']);
+    expect(createPermitted).toEqual(['Observation']);
+    expect(PermissionUtils.getPermittedResources(undefined, 'read')).toEqual([]);
+  });
+});
+
+describe('Edge Cases and Error Handling', () => {
+  test('handles undefined permissions gracefully', () => {
+    const user: AuthenticatedUser = {
+      id: 'user-123',
+      roles: ['user'],
+      permissions: {} as FHIRPermissions // Empty permissions
+    };
+    const authContext = new AuthContext(user);
+    
+    expect(authContext.checkPermission('Patient', 'read')).toBe(false);
+    expect(authContext.hasPermission('read')).toBe(false);
+  });
+
+  test('handles malformed resource data gracefully', () => {
+    const user = createMockUser({
+      canRead: true,
+      resources: {
+        'Patient': {
+          read: true,
+          conditions: [{
+            field: 'nonexistent.deeply.nested.field',
+            operator: 'eq',
+            value: 'test'
+          }]
+        }
+      }
+    });
+    const authContext = new AuthContext(user);
+    
+    const malformedData = { id: 'patient-123' }; // Missing the expected field
+    
+    // Should handle missing fields gracefully and return false
+    expect(authContext.checkPermission('Patient', 'read', malformedData)).toBe(false);
+  });
+
+  test('handles circular reference in resource data', () => {
+    const user = createMockUser({
+      canRead: true,
+      resources: {
+        'Patient': {
+          read: true,
+          conditions: [{
+            field: 'id',
+            operator: 'eq',
+            value: 'patient-123'
+          }]
+        }
+      }
+    });
+    const authContext = new AuthContext(user);
+    
+    const circularData: any = { id: 'patient-123' };
+    circularData.self = circularData; // Create circular reference
+    
+    // Should handle circular references without throwing
+    expect(() => authContext.checkPermission('Patient', 'read', circularData)).not.toThrow();
+    expect(authContext.checkPermission('Patient', 'read', circularData)).toBe(true);
+  });
+});

@@ -1,0 +1,28 @@
+{
+  "name": "auth-fhir-server",
+  "version": "0.1.0",
+  "description": "FHIR server with authentication and authorization example",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "dev": "bun --watch src/server.ts",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "@atomic-fhir/core": "workspace:*",
+    "@atomic-fhir/auth": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "fhir",
+    "healthcare",
+    "authentication",
+    "authorization",
+    "server",
+    "api"
+  ]
+}
