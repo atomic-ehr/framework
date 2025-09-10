@@ -20,6 +20,8 @@ import { PackageManager } from "./package-manager.js";
 import { ResourceRegistry } from "./resource-registry.js";
 import { Router } from "./router.js";
 import { Validator } from "./validator.js";
+import { SeedingManager } from "./seeding-manager.js";
+import { EmbeddedPackageManager } from "./embedded-package-manager.js";
 
 interface StartOptions {
 	port?: number;
@@ -47,6 +49,8 @@ class Atomic {
 	public validator: Validator;
 	public capabilityStatement: CapabilityStatement;
 	public packageManager: PackageManager;
+	public seedingManager: SeedingManager;
+	public embeddedPackageManager: EmbeddedPackageManager;
 
 	constructor(config: AtomicConfig = {}) {
 		console.log(
@@ -150,6 +154,8 @@ class Atomic {
 			(this.config.packages as any)?.path || ".packages",
 			this.config.packages as any,
 		);
+		this.seedingManager = new SeedingManager();
+		this.embeddedPackageManager = new EmbeddedPackageManager();
 
 		this.setupCoreRoutes();
 		this.registerConfigMiddleware();
@@ -170,6 +176,80 @@ class Atomic {
 				);
 				this.middleware.register(middleware);
 			}
+		}
+	}
+
+	/**
+	 * Register an embedded package for autoloading
+	 */
+	async registerEmbeddedPackage(definition: any, basePath?: string): Promise<void> {
+		await this.embeddedPackageManager.registerPackage(definition, basePath);
+	}
+
+	/**
+	 * Create handler context with all managers
+	 */
+	private createHandlerContext(req?: Request): HandlerContext {
+		return {
+			req,
+			storage: this.storage,
+			hooks: this.hooks,
+			validator: this.validator,
+			config: this.config,
+			packageManager: this.packageManager,
+			seedingManager: this.seedingManager,
+			embeddedPackageManager: this.embeddedPackageManager,
+			resources: this.resources,
+			operations: this.operations,
+			middleware: this.middleware,
+		} as any;
+	}
+
+	private async loadEmbeddedPackageDependencies(): Promise<void> {
+		const embeddedPackages = this.embeddedPackageManager.getAllPackages();
+		const allDependencies = new Set<string>();
+
+		// Collect all dependencies from embedded packages
+		for (const pkg of embeddedPackages) {
+			if (pkg.dependencies) {
+				for (const dep of pkg.dependencies) {
+					allDependencies.add(dep);
+				}
+			}
+		}
+
+		if (allDependencies.size === 0) {
+			return;
+		}
+
+		console.log(`[EmbeddedPackages] Loading ${allDependencies.size} dependencies through canonical manager:`, Array.from(allDependencies));
+
+		// Convert dependencies to package configurations and load them
+		const dependencyPackages = Array.from(allDependencies).map(dep => {
+			// Parse dependency string (e.g., "hl7.fhir.r4.core" -> package config)
+			return {
+				package: dep,
+				version: 'latest', // Could be parsed from dependency string if version specified
+				npmRegistry: 'https://get-ig.org'
+			};
+		});
+
+		// Add to existing packages if not already configured
+		const packages = Array.isArray(this.config.packages) ? this.config.packages : [];
+		const existingPackageNames = new Set(packages.map(p => p.package));
+		const newPackages = dependencyPackages.filter(dep => !existingPackageNames.has(dep.package));
+
+		if (newPackages.length > 0) {
+			console.log(`[EmbeddedPackages] Adding ${newPackages.length} new dependency packages:`, newPackages.map(p => p.package));
+			
+			if (!Array.isArray(this.config.packages)) {
+				this.config.packages = [];
+			}
+			
+			this.config.packages.push(...newPackages);
+
+			// Load the new dependency packages
+			await this.packageManager.loadPackages(newPackages);
 		}
 	}
 
@@ -1202,6 +1282,15 @@ class Atomic {
 			}
 		}
 
+		// Load embedded packages before autoload
+		console.log('\n🔧 Loading embedded packages...');
+		const context = this.createHandlerContext();
+		
+		// First, check for and load any dependencies from embedded packages
+		await this.loadEmbeddedPackageDependencies();
+		
+		await this.embeddedPackageManager.loadAllPackages(context);
+
 		// Autoload components if enabled
 		if (
 			options.autoload !== false &&
@@ -1211,20 +1300,33 @@ class Atomic {
 			await this.autoload(options.basePath);
 		}
 
+		// Run auto-seeding if needed
+		if (this.seedingManager.shouldRunSeeding(process.argv)) {
+			console.log('\n🌱 Running seeding...');
+			const seedingOptions = this.seedingManager.getSeedingOptions(process.argv);
+			const seedingResult = await this.seedingManager.seedAll(context, seedingOptions);
+			
+			if (seedingResult.success) {
+				console.log(`✅ Seeding completed: ${seedingResult.created} created, ${seedingResult.updated} updated, ${seedingResult.skipped} skipped`);
+			} else {
+				console.error(`❌ Seeding failed with ${seedingResult.errors.length} errors:`);
+				seedingResult.errors.forEach(error => console.error(`   • ${error}`));
+			}
+		} else {
+			// Check if auto-seeding is needed
+			const autoSeeded = await this.seedingManager.checkAutoSeed(context);
+			if (autoSeeded) {
+				console.log('✅ Auto-seeding completed');
+			}
+		}
+
 		const port = options.port || this.config.server?.port || 3000;
 		const server = (Bun as any).serve({
 			port,
 			fetch: async (req: Request) => {
 				try {
 					// Apply global middleware
-					const context = {
-						req,
-						storage: this.storage,
-						hooks: this.hooks,
-						validator: this.validator,
-						config: this.config,
-						packageManager: this.packageManager,
-					} as any;
+					const context = this.createHandlerContext(req);
 					await this.middleware.executeBefore(context);
 
 					// Route request with enhanced context

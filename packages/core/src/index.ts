@@ -25,6 +25,13 @@ export { PackageManager } from './core/package-manager.js';
 export { Validator, ValidationError } from './core/validator.js';
 export { CapabilityStatement } from './core/capability-statement.js';
 
+// Security and SMART on FHIR
+export * as SMARTScopes from './security/scopes.js';
+
+// Seeding and embedded package management
+export { SeedingManager, type SeedProvider, type SeedBundle, type SeedingOptions, type SeedingResult } from './core/seeding-manager.js';
+export { EmbeddedPackageManager, type EmbeddedPackageDefinition, type EmbeddedPackage } from './core/embedded-package-manager.js';
+
 // Export all types
 export * from './types/index.js';
 

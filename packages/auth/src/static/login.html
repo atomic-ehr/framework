@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FHIR Server Authentication</title>
+    <link rel="stylesheet" href="/auth/static/styles.css">
+    <script src="/auth/static/login.js" defer></script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>FHIR Server Login</h1>
+                <p class="client-info">
+                    Authorize <strong id="client-name">loading...</strong> to access your FHIR data
+                </p>
+            </div>
+            
+            <div class="error-message" id="error-message" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <div class="error-text" id="error-text"></div>
+            </div>
+            
+            <form id="login-form" class="login-form" method="POST" action="/auth/login">
+                <input type="hidden" id="session-id" name="session_id" value="">
+                <input type="hidden" id="csrf-token" name="csrf_token" value="">
+                
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required 
+                        autocomplete="username"
+                        maxlength="255"
+                        placeholder="Enter your username"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                    >
+                    <div class="password-toggle" onclick="togglePasswordVisibility()">
+                        <span id="password-toggle-icon">👁️</span>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="login-button" id="login-button">
+                        <span class="button-text">Sign In</span>
+                        <div class="button-spinner" id="button-spinner" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="security-notice">
+                <div class="security-icon">🔒</div>
+                <div class="security-text">
+                    Your credentials are securely encrypted and transmitted over HTTPS.
+                    This login is protected by industry-standard security measures.
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Powered by <a href="https://github.com/atomic-fhir/framework" target="_blank" rel="noopener">Atomic FHIR Framework</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div class="modal" id="success-modal" style="display: none;">
+        <div class="modal-content success">
+            <div class="modal-header">
+                <span class="modal-icon">✅</span>
+                <h2>Login Successful</h2>
+            </div>
+            <div class="modal-body">
+                <p>Authentication successful. Redirecting to authorize your application...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

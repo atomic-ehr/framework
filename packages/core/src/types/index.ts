@@ -110,6 +110,29 @@ export interface HandlerResponse {
 }
 
 /**
+ * Security context for request authentication and authorization
+ */
+export interface SecurityContext {
+  scopes: string[];
+  user?: {
+    id: string;
+    username?: string;
+    roles?: string[];
+    metadata?: Record<string, any>;
+  };
+  client?: {
+    id: string;
+    type: 'public' | 'confidential';
+    metadata?: Record<string, any>;
+  };
+  token?: {
+    type: 'bearer' | 'jwt' | 'session';
+    expiresAt?: Date;
+    issuedAt: Date;
+  };
+}
+
+/**
  * Context passed to handlers and hooks
  */
 export interface HandlerContext {
@@ -118,6 +141,12 @@ export interface HandlerContext {
   validator: any; // Will be properly typed when we convert Validator
   config: AtomicConfig;
   packageManager?: any; // Will be properly typed when we convert PackageManager
+  security?: SecurityContext; // SMART on FHIR security context
+  seedingManager?: any; // Will be properly typed when we convert SeedingManager
+  embeddedPackageManager?: any; // Will be properly typed when we convert EmbeddedPackageManager
+  resources?: any; // ResourceRegistry
+  operations?: any; // OperationRegistry
+  middleware?: any; // MiddlewareManager
 }
 
 /**

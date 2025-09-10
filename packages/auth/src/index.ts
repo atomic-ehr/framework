@@ -1,5 +1,47 @@
 // Main exports for @atomic-fhir/auth package
 
+// New autoload-based registration system
+export {
+  registerAuth,
+  enableAuth,
+  type RegisterAuthOptions,
+  AtomicAuthPackageDefinition,
+  AtomicAuthSeedProvider
+} from "./register-auth.js";
+
+// Legacy HTTP endpoints and routing (still supported)
+export {
+  createAuthRouter,
+  registerAuthRoutes,
+  createAuthSecurityMiddleware,
+  authorizeHandler,
+  loginHandler,
+  tokenHandler,
+  type AuthRouterConfig
+} from "./http/index.js";
+
+// Legacy seeding system (still supported, but deprecated)
+// @deprecated Use the new autoload system with registerAuth() or enableAuth() instead
+export {
+  seedAuthData,
+  checkAndRunAutoSeeding,
+  shouldRunSeeding,
+  getSeedingOptions,
+  DEFAULT_SEED_CREDENTIALS,
+  DEFAULT_SEED_CLIENTS,
+  type SeedingOptions,
+  type SeedingResult
+} from "./seeds/index.js";
+
+// Legacy FHIR IG package registration (still supported)
+export {
+  registerAtomicAuthPackage,
+  registerSearchParameters,
+  getAtomicAuthPackagePath,
+  ATOMIC_AUTH_PACKAGE_DEFINITION,
+  ATOMIC_AUTH_SEARCH_PARAMETERS
+} from "./ig/index.js";
+
 // Export audit logging system
 export {
 	type AuditBackend,

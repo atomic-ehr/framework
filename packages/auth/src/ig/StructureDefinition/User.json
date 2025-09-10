@@ -1,0 +1,156 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "atomic-auth-user",
+  "url": "http://atomic-fhir.org/ig/auth/StructureDefinition/User",
+  "version": "1.0.0",
+  "name": "AtomicAuthUser",
+  "title": "Atomic Auth User Profile",
+  "status": "active",
+  "publisher": "Atomic FHIR Team",
+  "description": "User profile for Atomic FHIR authentication system with username, password hash, roles, and SMART scopes",
+  "fhirVersion": "4.0.1",
+  "mapping": [
+    {
+      "identity": "rim",
+      "uri": "http://hl7.org/v3",
+      "name": "RIM Mapping"
+    }
+  ],
+  "kind": "resource",
+  "abstract": false,
+  "type": "Basic",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Basic",
+  "derivation": "constraint",
+  "differential": {
+    "element": [
+      {
+        "id": "Basic",
+        "path": "Basic",
+        "short": "Atomic Authentication User",
+        "definition": "A user profile for the Atomic FHIR authentication system containing identity, credentials, and authorization information"
+      },
+      {
+        "id": "Basic.code",
+        "path": "Basic.code",
+        "fixedCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://atomic-fhir.org/ig/auth/CodeSystem/resource-types",
+              "code": "user",
+              "display": "User"
+            }
+          ]
+        }
+      },
+      {
+        "id": "Basic.extension",
+        "path": "Basic.extension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "ordered": false,
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Basic.extension:username",
+        "path": "Basic.extension",
+        "sliceName": "username",
+        "short": "Username for login",
+        "definition": "Unique username for user authentication",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/username"]
+          }
+        ],
+        "mustSupport": true
+      },
+      {
+        "id": "Basic.extension:passwordHash",
+        "path": "Basic.extension",
+        "sliceName": "passwordHash",
+        "short": "Hashed password",
+        "definition": "Bcrypt hashed password for authentication",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/password-hash"]
+          }
+        ],
+        "mustSupport": true
+      },
+      {
+        "id": "Basic.extension:email",
+        "path": "Basic.extension",
+        "sliceName": "email",
+        "short": "Email address",
+        "definition": "User's email address for notifications and recovery",
+        "min": 0,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/email"]
+          }
+        ]
+      },
+      {
+        "id": "Basic.extension:active",
+        "path": "Basic.extension",
+        "sliceName": "active",
+        "short": "Account active status",
+        "definition": "Whether the user account is active and can be used for authentication",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/active-status"]
+          }
+        ],
+        "mustSupport": true
+      },
+      {
+        "id": "Basic.extension:roles",
+        "path": "Basic.extension",
+        "sliceName": "roles",
+        "short": "User roles",
+        "definition": "List of roles assigned to the user",
+        "min": 0,
+        "max": "*",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/user-role"]
+          }
+        ],
+        "mustSupport": true
+      },
+      {
+        "id": "Basic.extension:scopes",
+        "path": "Basic.extension",
+        "sliceName": "scopes",
+        "short": "SMART on FHIR scopes",
+        "definition": "List of SMART on FHIR scopes granted to the user",
+        "min": 0,
+        "max": "*",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://atomic-fhir.org/ig/auth/StructureDefinition/smart-scope"]
+          }
+        ],
+        "mustSupport": true
+      }
+    ]
+  }
+}
