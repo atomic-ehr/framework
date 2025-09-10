@@ -344,20 +344,27 @@ async function handleRefreshTokenGrant(
 
 async function lookupSessionByCode(code: string, context: HandlerContext): Promise<LoginSession | null> {
   try {
-    const bundle = await context.storage.search('LoginSession', {
-      'authorization-code': code
-    });
+    // Search for all LoginSession resources and filter manually (same pattern as client lookup)
+    const searchResult = await context.storage.search('LoginSession', {});
 
-    if (bundle?.entry?.length > 0) {
-      const session = bundle.entry[0].resource as LoginSession;
-      
-      // Check expiration
-      if (new Date(session.expiresAt) < new Date()) {
-        await context.storage.delete('LoginSession', session.id);
-        return null;
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+
+    if (resources.length > 0) {
+      // Find the session with matching authorization code
+      for (const resource of resources) {
+        if (resource.authorizationCode === code) {
+          const session = resource as LoginSession;
+          
+          // Check expiration
+          if (new Date(session.expiresAt) < new Date()) {
+            await context.storage.delete('LoginSession', session.id);
+            return null;
+          }
+          
+          return session;
+        }
       }
-      
-      return session;
     }
     
     return null;
@@ -369,12 +376,26 @@ async function lookupSessionByCode(code: string, context: HandlerContext): Promi
 
 async function lookupClient(clientId: string, context: HandlerContext): Promise<Client | null> {
   try {
-    const bundle = await context.storage.search('Client', {
-      'client-id': clientId
-    });
+    // Search for all Basic resources and filter manually (same as authorize.ts)
+    const searchResult = await context.storage.search('Basic', {});
     
-    if (bundle?.entry?.length > 0) {
-      return bundle.entry[0].resource as Client;
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+    
+    if (resources.length > 0) {
+      // Find the client resource with matching client-id
+      for (const resource of resources) {
+        if (resource.code?.coding?.[0]?.code === 'client') {
+          // Get the client-id from extensions
+          const resourceClientId = resource.extension?.find((ext: any) =>
+            ext.url === 'http://atomic-fhir.org/ig/auth/StructureDefinition/client-id'
+          )?.valueString;
+          
+          if (resourceClientId === clientId) {
+            return transformBasicToClient(resource);
+          }
+        }
+      }
     }
     
     return null;
@@ -382,6 +403,37 @@ async function lookupClient(clientId: string, context: HandlerContext): Promise<
     console.error('[OAuth2 Token] Error looking up client:', error);
     return null;
   }
+}
+
+// Helper function to transform Basic resource to Client interface (same as authorize.ts)
+function transformBasicToClient(basicResource: any): Client {
+  const getExtensionValue = (url: string) => {
+    const extension = basicResource.extension?.find((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extension?.valueString || extension?.valueBoolean;
+  };
+
+  const getExtensionValues = (url: string) => {
+    const extensions = basicResource.extension?.filter((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extensions?.map((ext: any) => ext.valueString || ext.valueBoolean) || [];
+  };
+
+  return {
+    resourceType: 'Client',
+    id: basicResource.id,
+    clientId: getExtensionValue('client-id'),
+    clientType: getExtensionValue('client-type') as 'public' | 'confidential',
+    name: basicResource.subject?.display,
+    redirectUris: getExtensionValues('redirect-uri'),
+    grantTypes: getExtensionValues('grant-type'),
+    responseTypes: getExtensionValues('response-type'),
+    scope: getExtensionValues('client-scope'),
+    clientSecret: getExtensionValue('client-secret'),
+    active: getExtensionValue('active-status') !== false
+  };
 }
 
 async function lookupUser(userId: string, context: HandlerContext): Promise<User | null> {
@@ -395,12 +447,15 @@ async function lookupUser(userId: string, context: HandlerContext): Promise<User
 
 async function lookupTokenByRefreshToken(refreshToken: string, context: HandlerContext): Promise<Token | null> {
   try {
-    const bundle = await context.storage.search('Token', {
+    const searchResult = await context.storage.search('Token', {
       'refresh-token': refreshToken
     });
 
-    if (bundle?.entry?.length > 0) {
-      return bundle.entry[0].resource as Token;
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+
+    if (resources.length > 0) {
+      return resources[0] as Token;
     }
     
     return null;

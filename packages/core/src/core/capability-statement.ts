@@ -88,7 +88,7 @@ export class CapabilityStatement {
           resource: resources.map(([type, definition]) => {
             // Build interaction list based on capabilities
             const interactions: Array<{ code: string }> = [];
-            const caps: ResourceCapabilities = definition.capabilities || {};
+            const caps: ResourceCapabilities = definition?.capabilities || {};
             
             // Map capabilities to FHIR interaction codes
             if (caps.read !== false) interactions.push({ code: 'read' });
@@ -120,7 +120,7 @@ export class CapabilityStatement {
               conditionalDelete: caps['delete-conditional-single'] || caps['delete-conditional-multiple'] 
                 ? (caps['delete-conditional-multiple'] ? 'multiple' : 'single')
                 : 'not-supported',
-              searchParam: Object.entries(definition.searches || {}).map(([name, search]) => ({
+              searchParam: Object.entries(definition?.searches || {}).map(([name, search]) => ({
                 name,
                 type: search.type,
                 documentation: search.documentation

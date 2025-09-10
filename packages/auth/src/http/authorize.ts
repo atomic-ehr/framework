@@ -51,6 +51,37 @@ const SUPPORTED_RESPONSE_TYPES = new Set(['code']);
 const SUPPORTED_CODE_CHALLENGE_METHODS = new Set(['S256', 'plain']);
 const SESSION_EXPIRY_MINUTES = 30;
 
+// Helper function to transform Basic resource to Client interface
+function transformBasicToClient(basicResource: any): Client {
+  const getExtensionValue = (url: string) => {
+    const extension = basicResource.extension?.find((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extension?.valueString || extension?.valueBoolean;
+  };
+
+  const getExtensionValues = (url: string) => {
+    const extensions = basicResource.extension?.filter((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extensions?.map((ext: any) => ext.valueString || ext.valueBoolean) || [];
+  };
+
+  return {
+    resourceType: 'Client',
+    id: basicResource.id,
+    clientId: getExtensionValue('client-id'),
+    clientType: getExtensionValue('client-type') as 'public' | 'confidential',
+    name: basicResource.subject?.display,
+    redirectUris: getExtensionValues('redirect-uri'),
+    grantTypes: getExtensionValues('grant-type'),
+    responseTypes: getExtensionValues('response-type'),
+    scope: getExtensionValues('client-scope'),
+    clientSecret: getExtensionValue('client-secret'),
+    active: getExtensionValue('active-status') !== false
+  };
+}
+
 export async function authorizeHandler(req: Request, context: HandlerContext): Promise<HandlerResponse> {
   try {
     const url = new URL(req.url);
@@ -110,7 +141,13 @@ export async function authorizeHandler(req: Request, context: HandlerContext): P
     };
 
     // Save login session
+    console.log('[OAuth2 Authorize] Creating LoginSession:', {
+      sessionId: loginSession.sessionId,
+      clientId: loginSession.clientId,
+      expiresAt: loginSession.expiresAt
+    });
     await context.storage.create('LoginSession', loginSession);
+    console.log('[OAuth2 Authorize] LoginSession created successfully');
 
     // Render login page
     const loginPageUrl = `/auth/static/login.html?session_id=${sessionId}&client_name=${encodeURIComponent(client.name || client.clientId)}`;
@@ -186,15 +223,57 @@ function validateAuthorizeParams(params: AuthorizeParams): { valid: boolean; err
 
 async function lookupClient(clientId: string, context: HandlerContext): Promise<Client | null> {
   try {
-    // Search for client by clientId (business key)
-    const bundle = await context.storage.search('Client', { 
-      'client-id': clientId 
+    console.log('[OAuth2 Authorize] Looking up client:', clientId);
+    
+    // Search for all Basic resources (no filters) and then filter in memory
+    // This completely bypasses search parameters
+    console.log('[OAuth2 Authorize] About to call storage.search with:', {
+      storageType: context.storage?.constructor?.name,
+      searchMethodExists: typeof context.storage?.search === 'function'
     });
     
-    if (bundle?.entry?.length > 0) {
-      return bundle.entry[0].resource as Client;
+    const searchResult = await context.storage.search('Basic', {});
+    
+    console.log('[OAuth2 Authorize] Search result:', { 
+      searchResult,
+      resultType: typeof searchResult,
+      isArray: Array.isArray(searchResult),
+      length: searchResult?.length 
+    });
+    
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+    
+    if (resources.length > 0) {
+      // Find the client resource with matching client-id
+      for (const resource of resources) {
+        console.log('[OAuth2 Authorize] Checking resource:', { 
+          id: resource.id, 
+          code: resource.code?.coding?.[0]?.code 
+        });
+        
+        if (resource.code?.coding?.[0]?.code === 'client') {
+          // Get the client-id from extensions
+          const resourceClientId = resource.extension?.find((ext: any) =>
+            ext.url === 'http://atomic-fhir.org/ig/auth/StructureDefinition/client-id'
+          )?.valueString;
+          
+          console.log('[OAuth2 Authorize] Resource client-id:', resourceClientId);
+          
+          if (resourceClientId === clientId) {
+            console.log('[OAuth2 Authorize] Found matching client, transforming...');
+            const client = transformBasicToClient(resource);
+            console.log('[OAuth2 Authorize] Transformed client:', { 
+              clientId: client.clientId, 
+              active: client.active 
+            });
+            return client;
+          }
+        }
+      }
     }
     
+    console.log('[OAuth2 Authorize] No matching client found');
     return null;
   } catch (error) {
     console.error('[OAuth2 Authorize] Error looking up client:', error);
@@ -209,21 +288,28 @@ async function getSessionFromCookie(cookieHeader: string, context: HandlerContex
   const sessionId = sessionMatch[1];
   
   try {
-    const bundle = await context.storage.search('LoginSession', {
-      'session-id': sessionId
-    });
+    // Search for all LoginSession resources and filter manually (same pattern as client lookup)
+    const searchResult = await context.storage.search('LoginSession', {});
 
-    if (bundle?.entry?.length > 0) {
-      const session = bundle.entry[0].resource as LoginSession;
-      
-      // Check if session is expired
-      if (new Date(session.expiresAt) < new Date()) {
-        // Clean up expired session
-        await context.storage.delete('LoginSession', session.id);
-        return null;
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+
+    if (resources.length > 0) {
+      // Find the session with matching sessionId
+      for (const resource of resources) {
+        if (resource.sessionId === sessionId) {
+          const session = resource as LoginSession;
+          
+          // Check if session is expired
+          if (new Date(session.expiresAt) < new Date()) {
+            // Clean up expired session
+            await context.storage.delete('LoginSession', session.id);
+            return null;
+          }
+          
+          return session;
+        }
       }
-      
-      return session;
     }
     
     return null;

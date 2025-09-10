@@ -25,7 +25,7 @@
           },
           {
             "url": "http://atomic-fhir.org/ig/auth/StructureDefinition/password-hash",
-            "valueString": "$2b$10$K8WfzRQoMKUL8n8XcHYyFuGKVZ9dkRzGJX5W2x9fQJO3dY1zFnJ8e"
+            "valueString": "$2b$10$vtpF9p.SEJShKhI7ytJyCut6akHVm4mnd10Fu4T9NuX8OezN2Mni6"
           },
           {
             "url": "http://atomic-fhir.org/ig/auth/StructureDefinition/email",
@@ -79,7 +79,7 @@
           },
           {
             "url": "http://atomic-fhir.org/ig/auth/StructureDefinition/password-hash",
-            "valueString": "$2b$10$xqM7VfzFzN.K3sL1u4yKJ.E8Wf1kLzBqJ4rXzN8vC2mJ9qR3wE5aS"
+            "valueString": "$2b$10$.DjLtqBZlnlmLqjM9kf6..fmdZMc3I8NVlWMvJFcZ3cdi0HVGo5ue"
           },
           {
             "url": "http://atomic-fhir.org/ig/auth/StructureDefinition/email",

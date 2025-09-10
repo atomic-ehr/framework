@@ -40,8 +40,8 @@ export async function registerAuth(
     
     // Wrap handler to ensure context is passed correctly
     const wrappedHandler = async (req: Request, context?: any) => {
-      // If no context passed, get it from app
-      const handlerContext = context || {
+      // Always construct context from app to ensure proper storage reference
+      const handlerContext = {
         storage: app.storage,
         hooks: app.hooks,
         operations: app.operations,
@@ -49,6 +49,12 @@ export async function registerAuth(
         config: app.config,
         packageManager: app.packageManager
       };
+      
+      console.log('[Auth Route] Storage context:', {
+        hasStorage: !!handlerContext.storage,
+        storageType: handlerContext.storage?.constructor?.name,
+        searchMethod: typeof handlerContext.storage?.search
+      });
       
       const response = await handler(req, handlerContext);
       

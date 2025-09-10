@@ -181,14 +181,26 @@ function validateLoginParams(params: LoginParams): { valid: boolean; error?: str
 
 async function lookupLoginSession(sessionId: string, context: HandlerContext): Promise<LoginSession | null> {
   try {
-    const bundle = await context.storage.search('LoginSession', {
-      'session-id': sessionId
-    });
+    console.log('[OAuth2 Login] Looking up session:', sessionId);
+    // Search for all LoginSession resources and filter manually (same pattern as client/user lookup)
+    const searchResult = await context.storage.search('LoginSession', {});
 
-    if (bundle?.entry?.length > 0) {
-      return bundle.entry[0].resource as LoginSession;
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+
+    console.log('[OAuth2 Login] Found', resources.length, 'LoginSession resources');
+    if (resources.length > 0) {
+      // Find the session with matching sessionId
+      for (const resource of resources) {
+        console.log('[OAuth2 Login] Checking session:', resource.sessionId, 'vs', sessionId);
+        if (resource.sessionId === sessionId) {
+          console.log('[OAuth2 Login] Found matching session, expires at:', resource.expiresAt);
+          return resource as LoginSession;
+        }
+      }
     }
     
+    console.log('[OAuth2 Login] No matching session found');
     return null;
   } catch (error) {
     console.error('[OAuth2 Login] Error looking up session:', error);
@@ -198,18 +210,31 @@ async function lookupLoginSession(sessionId: string, context: HandlerContext): P
 
 async function authenticateUser(username: string, password: string, context: HandlerContext): Promise<User | null> {
   try {
-    // Search for user by username (business key)
-    const bundle = await context.storage.search('User', {
-      'username': username
-    });
-
-    if (bundle?.entry?.length > 0) {
-      const user = bundle.entry[0].resource as User;
-      
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-      if (isValidPassword) {
-        return user;
+    // Search for all Basic resources and filter manually (same pattern as client lookup)
+    const searchResult = await context.storage.search('Basic', {});
+    
+    // Handle both Bundle format and direct array format
+    const resources = Array.isArray(searchResult) ? searchResult : searchResult?.entry?.map(e => e.resource) || [];
+    
+    if (resources.length > 0) {
+      // Find the user resource with matching username
+      for (const resource of resources) {
+        if (resource.code?.coding?.[0]?.code === 'user') {
+          // Get the username from extensions
+          const resourceUsername = resource.extension?.find((ext: any) =>
+            ext.url === 'http://atomic-fhir.org/ig/auth/StructureDefinition/username'
+          )?.valueString;
+          
+          if (resourceUsername === username) {
+            const user = transformBasicToUser(resource);
+            
+            // Verify password
+            const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+            if (isValidPassword) {
+              return user;
+            }
+          }
+        }
       }
     }
     
@@ -218,6 +243,37 @@ async function authenticateUser(username: string, password: string, context: Han
     console.error('[OAuth2 Login] Error authenticating user:', error);
     return null;
   }
+}
+
+// Helper function to transform Basic resource to User interface
+function transformBasicToUser(basicResource: any): User {
+  const getExtensionValue = (url: string) => {
+    const extension = basicResource.extension?.find((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extension?.valueString || extension?.valueBoolean;
+  };
+
+  const getExtensionValues = (url: string) => {
+    const extensions = basicResource.extension?.filter((ext: any) => 
+      ext.url === `http://atomic-fhir.org/ig/auth/StructureDefinition/${url}`
+    );
+    return extensions?.map((ext: any) => ext.valueString || ext.valueBoolean) || [];
+  };
+
+  return {
+    resourceType: 'User',
+    id: basicResource.id,
+    username: getExtensionValue('username'),
+    passwordHash: getExtensionValue('password-hash'),
+    email: getExtensionValue('email'),
+    active: getExtensionValue('active-status') !== false,
+    roles: getExtensionValues('user-role'),
+    scopes: getExtensionValues('smart-scope'),
+    metadata: {},
+    createdAt: basicResource.meta?.lastUpdated || new Date().toISOString(),
+    updatedAt: basicResource.meta?.lastUpdated || new Date().toISOString()
+  };
 }
 
 // Simple in-memory rate limiting (in production, use Redis or similar)
