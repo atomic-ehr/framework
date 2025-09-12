@@ -24,14 +24,22 @@ export class MiddlewareManager {
     this.middleware.push(middleware);
   }
 
-  async executeBefore(context: HandlerContext & { req: Request; resourceType?: string; operation?: string }): Promise<void> {
+  async executeBefore(context: HandlerContext & { req: Request; resourceType?: string; operation?: string }): Promise<any> {
     console.log(`[MIDDLEWARE] Executing ${this.middleware.length} middleware before handlers`);
     for (const mw of this.middleware) {
       if (mw.before && this.shouldExecute(mw, context)) {
         console.log(`[MIDDLEWARE] Executing middleware: ${mw.name || 'unnamed'}`);
-        await mw.before(context.req, context);
+        const result = await mw.before(context.req, context);
+        if (result && this.isHandlerResponse(result)) {
+          console.log(`[MIDDLEWARE] Middleware ${mw.name || 'unnamed'} returned response - short-circuiting`);
+          return result;
+        } else if (result instanceof Request) {
+          // Update the request in context if middleware returned a modified Request
+          context.req = result;
+        }
       }
     }
+    return null;
   }
 
   async executeAfter(response: Response, context: HandlerContext & { resourceType?: string; operation?: string }): Promise<Response> {
@@ -60,5 +68,14 @@ export class MiddlewareManager {
     }
     
     return true;
+  }
+
+  private isHandlerResponse(result: any): boolean {
+    // Check if result looks like a HandlerResponse object
+    return result && typeof result === 'object' && 
+           (typeof result.status === 'number' || 
+            result.headers !== undefined || 
+            result.body !== undefined) &&
+           !(result instanceof Request);
   }
 }

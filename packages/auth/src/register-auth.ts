@@ -58,8 +58,8 @@ export async function registerAuth(
       
       const response = await handler(req, handlerContext);
       
-      // Ensure response body is properly serialized
-      if (response && typeof response.body === 'object' && response.body !== null) {
+      // Ensure response body is properly serialized (but skip binary data)
+      if (response && typeof response.body === 'object' && response.body !== null && !(response.body instanceof ArrayBuffer)) {
         return {
           ...response,
           body: JSON.stringify(response.body)

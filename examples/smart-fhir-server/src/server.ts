@@ -24,7 +24,7 @@
  */
 
 import { Atomic, type AtomicConfig } from "@atomic-fhir/core";
-import { enableAuth } from "@atomic-fhir/auth";
+import { enableAuth, createOAuth2Middleware, createSMARTContextMiddleware, createSMARTScopeMiddleware, createProtectedMiddleware } from "@atomic-fhir/auth";
 import seedProvider from "./seed-provider.js";
 
 // Server configuration
@@ -77,12 +77,22 @@ const app = new Atomic(config);
 // Register authentication with autoload system
 // This automatically:
 // - Registers the embedded auth FHIR package with StructureDefinitions
-// - Loads middleware from auth package (security context middleware)
 // - Loads hooks from auth package (audit hooks)
 // - Registers HTTP routes (/auth/authorize, /auth/token, etc.)
 // - Sets up seeding with default users and clients
 // - Serves static login UI assets
 await enableAuth(app);
+
+// Register OAuth2 and SMART middleware for token validation and scope enforcement
+// These middleware components work together to:
+// 1. Validate Bearer tokens and set security context
+// 2. Inject SMART launch context (patient, encounter) into requests
+// 3. Enforce scope-based access control for FHIR resources
+// 4. Redirect unauthenticated users to login page
+app.middleware.register(createOAuth2Middleware());
+app.middleware.register(createSMARTContextMiddleware());
+app.middleware.register(createSMARTScopeMiddleware());
+app.middleware.register(createProtectedMiddleware());
 
 // Register seed provider for demo users and clients
 app.seedingManager?.registerProvider(seedProvider);
@@ -102,6 +112,14 @@ app.start().then(() => {
 🔑 Token:         ${config.server?.url}/auth/token
 📋 Login UI:      ${config.server?.url}/auth/static/login.html
 ⚙️  Config:        ${config.server?.url}/.well-known/smart-configuration
+📋 Metadata:      ${config.server?.url}/metadata
+
+🔒 PROTECTED ENDPOINTS (require authentication):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏠 Dashboard:     ${config.server?.url}/\$dashboard
+👤 User Profile:  ${config.server?.url}/\$user-profile
+🧑‍⚕️ Patients:      ${config.server?.url}/Patient
+🔬 Observations:  ${config.server?.url}/Observation
 
 📚 EXAMPLE REQUESTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

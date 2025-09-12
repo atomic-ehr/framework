@@ -272,6 +272,14 @@ class Atomic {
 		return response;
 	}
 
+	private toResponse(handlerResponse: HandlerResponse): Response {
+		const { status, headers, body } = this.normalizeHandlerResponse(handlerResponse);
+		return new Response(body, {
+			status: status || 200,
+			headers: headers || {}
+		});
+	}
+
 	private setupCoreRoutes(): void {
 		// Metadata endpoint
 		this.router.get("/metadata", async () => {
@@ -1327,7 +1335,12 @@ class Atomic {
 				try {
 					// Apply global middleware
 					const context = this.createHandlerContext(req);
-					await this.middleware.executeBefore(context);
+					const middlewareResponse = await this.middleware.executeBefore(context);
+					
+					// If middleware returns a response (e.g. redirect), use it immediately
+					if (middlewareResponse) {
+						return this.toResponse(middlewareResponse);
+					}
 
 					// Route request with enhanced context
 					// biome-ignore lint/suspicious/noImplicitAnyLet: <explanation>

@@ -40,7 +40,7 @@ export async function loginHandler(req: Request, context: HandlerContext): Promi
     // Handle both form and JSON submissions
     if (contentType?.includes('application/json')) {
       params = await req.json() as LoginParams;
-    } else if (contentType?.includes('application/x-www-form-urlencoded')) {
+    } else if (contentType?.includes('application/x-www-form-urlencoded') || contentType?.includes('multipart/form-data')) {
       const formData = await req.formData();
       params = {
         username: formData.get('username') as string || '',
@@ -228,10 +228,18 @@ async function authenticateUser(username: string, password: string, context: Han
           if (resourceUsername === username) {
             const user = transformBasicToUser(resource);
             
+            console.log('[OAuth2 Login] Found user:', username);
+            console.log('[OAuth2 Login] Stored password hash:', user.passwordHash);
+            console.log('[OAuth2 Login] Provided password:', password);
+            
             // Verify password
             const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+            console.log('[OAuth2 Login] Password verification result:', isValidPassword);
+            
             if (isValidPassword) {
               return user;
+            } else {
+              console.log('[OAuth2 Login] Password verification failed');
             }
           }
         }

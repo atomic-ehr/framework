@@ -22,6 +22,7 @@ export function createAuthRouter(config: AuthRouterConfig = {}): Record<string, 
 
   // OAuth2/SMART endpoints
   routes[`GET ${basePath}/authorize`] = authorizeHandler;
+  routes[`GET ${basePath}/login`] = createLoginPageHandler();
   routes[`POST ${basePath}/login`] = loginHandler;
   routes[`POST ${basePath}/token`] = tokenHandler;
 
@@ -35,6 +36,47 @@ export function createAuthRouter(config: AuthRouterConfig = {}): Record<string, 
   }
 
   return routes;
+}
+
+function createLoginPageHandler() {
+  return async (req: Request, context: HandlerContext): Promise<HandlerResponse> => {
+    try {
+      // Serve the login HTML page directly
+      const staticDir = join(dirname(__dirname), 'static');
+      const loginPath = join(staticDir, 'login.html');
+      
+      const file = Bun.file(loginPath);
+      const exists = await file.exists();
+      
+      if (!exists) {
+        return {
+          status: 404,
+          headers: { 'Content-Type': 'text/plain' },
+          body: 'Login page not found'
+        };
+      }
+
+      const content = await file.text();
+
+      return {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        body: content
+      };
+    } catch (error) {
+      console.error('[Auth Router] Login page handler error:', error);
+      return {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain' },
+        body: 'Internal server error'
+      };
+    }
+  };
 }
 
 function createSMARTConfigurationHandler(basePath: string) {

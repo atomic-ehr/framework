@@ -116,6 +116,12 @@ export {
 	createSMARTContextMiddleware,
 	createSMARTScopeMiddleware,
 } from "./middleware/oauth2-middleware.ts";
+// Protected route middleware
+export {
+	createProtectedMiddleware,
+	createScopeProtectedMiddleware,
+	type ProtectedMiddlewareOptions
+} from "./middleware/protected-middleware.ts";
 // Export base strategy
 export * from "./strategies/base-strategy.ts";
 // Export authentication strategies

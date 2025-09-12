@@ -11,7 +11,7 @@ export class SmartServerSeedProvider {
 
   async getSeedBundles() {
     try {
-      const seedPath = join(__dirname, "seeds", "init-bundle.json");
+      const seedPath = join(__dirname, "seeds", "auth-init-bundle.json");
       const content = await readFile(seedPath, 'utf8');
       const bundle = JSON.parse(content);
       

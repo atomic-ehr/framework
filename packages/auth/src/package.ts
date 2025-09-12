@@ -156,29 +156,12 @@ export class AtomicAuthSeedProvider implements SeedProvider {
   }
 
   async preprocessResource(resource: any): Promise<any> {
-    const processed = JSON.parse(JSON.stringify(resource));
-
-    if (resource.resourceType === 'Basic') {
-      const code = resource.code?.coding?.[0]?.code;
-      
-      if (code === 'user') {
-        // Hash password if it's not already hashed
-        const passwordHash = this.getExtensionValue(processed, 'password-hash');
-        if (passwordHash && !passwordHash.startsWith('$2b$')) {
-          const hashedPassword = await bcrypt.hash(passwordHash, 10);
-          this.setExtensionValue(processed, 'password-hash', hashedPassword);
-        }
-      } else if (code === 'client') {
-        // Hash client secret if it's not already hashed
-        const clientSecret = this.getExtensionValue(processed, 'client-secret');
-        if (clientSecret && !clientSecret.startsWith('$2b$')) {
-          const hashedSecret = await bcrypt.hash(clientSecret, 10);
-          this.setExtensionValue(processed, 'client-secret', hashedSecret);
-        }
-      }
-    }
-
-    return processed;
+    // Auth package seed provider only handles infrastructure resources
+    // User and client data should be handled by the application's seed provider
+    console.log(`[Atomic Auth] Processing resource: ${resource.resourceType}/${resource.id} (infrastructure only)`);
+    
+    // Return resource as-is - no password/secret hashing in auth module
+    return JSON.parse(JSON.stringify(resource));
   }
 
   async validateResource(resource: any): Promise<void> {
