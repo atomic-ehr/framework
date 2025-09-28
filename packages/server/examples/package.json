@@ -1,0 +1,13 @@
+{
+  "name": "@atomic-ehr/server-examples",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "bun demo-server.ts",
+    "test": "bun test-client.ts"
+  },
+  "dependencies": {
+    "@atomic-ehr/server": "file:.."
+  }
+}

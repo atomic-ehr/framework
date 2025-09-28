@@ -3,63 +3,82 @@
 ## Overview
 Implementation plan for a simple hook-based FHIR framework. Build working components first, add features later.
 
-## Phase 1: Foundation (Weeks 1-4)
+## Phase 1: Extend Core (Weeks 1-2)
 
-### Milestone 1.1: Basic Hooks
+### Milestone 1.1: Add Hooks to @atomic-ehr/core
 **Duration:** 1 week
 
 #### Tasks
-- `@atomic-ehr/hooks` package
-- Hook registry that stores and runs hooks
-- Simple request/response context
+- Extend existing `@atomic-ehr/core` package with hooks system
+- Build on existing base interfaces (App/Req/Res/Error, DI, Logger, Clock, Config, Events)
+- Hook registry and execution pipeline
 
 ```typescript
+// Extend existing @atomic-ehr/core interfaces
+import { AppContext, RequestContext, ResponseContext } from '@atomic-ehr/core';
+
 interface Hook {
   name: string;
-  phase: string;
-  handler: (context: Context) => void;
+  phase: HookPhase;
+  resourceType?: string;
+  priority?: number;
+  handler: (context: HookContext) => Promise<void>;
+}
+
+type HookPhase = 'before-request' | 'before-create' | 'before-update' | 'before-delete' | 'after-response' | 'on-error';
+
+interface HookContext extends RequestContext {
+  resource?: any;
+  resourceType?: string;
+  operation?: string;
 }
 
 class HookRegistry {
   add(hook: Hook): void;
-  run(phase: string, context: Context): void;
-}
-
-interface Context {
-  request: Request;
-  response: Response;
+  run(phase: HookPhase, context: HookContext): Promise<void>;
+  getHooks(phase: HookPhase, resourceType?: string): Hook[];
 }
 ```
 
 #### Success Criteria
-- [ ] Can register hooks
-- [ ] Can run hooks in order
-- [ ] Basic tests pass
+- [ ] Hooks integrate with existing @atomic-ehr/core interfaces
+- [ ] Can register and execute hooks
+- [ ] Hook execution pipeline works
+- [ ] Tests pass with existing core functionality
 
-### Milestone 1.2: HTTP Server
+### Milestone 1.2: Build @atomic-ehr/server Package
 **Duration:** 1 week
 
 #### Tasks
-- `@atomic-ehr/http` package
-- Basic HTTP server that can receive requests
-- Call hooks at request start and response end
+- Create new `@atomic-ehr/server` package
+- HTTP server with FHIR URL routing
+- Integration with @atomic-ehr/core hooks
 
 ```typescript
-interface Server {
-  listen(port: number): void;
-  addHook(hook: Hook): void;
+import { HookRegistry, HookContext } from '@atomic-ehr/core';
+
+interface FhirServerConfig {
+  port: number;
+  packages: string[];
 }
 
-class HttpServer implements Server {
-  listen(port: number): void;
+class FhirServer {
+  private hooks: HookRegistry;
+
+  constructor(config: FhirServerConfig);
+
   addHook(hook: Hook): void;
-  private handleRequest(req, res): void;
+  listen(): Promise<void>;
+
+  private handleRequest(req: Request, res: Response): Promise<void>;
+  private callHooks(phase: HookPhase, context: HookContext): Promise<void>;
 }
 ```
 
 #### Success Criteria
 - [ ] HTTP server starts and accepts requests
-- [ ] Hooks run before and after request handling
+- [ ] FHIR URL patterns recognized (/Patient/123, /Patient, etc.)
+- [ ] Hooks execute at appropriate phases
 - [ ] Can return JSON responses
 
 ### Milestone 1.3: FHIR URL Pattern Matching
@@ -102,61 +121,52 @@ class FhirRouter {
 - [ ] Support instance, type, and system level operations
 - [ ] Extract resourceType and id from URLs
 
-## Phase 2: FHIR Basics (Weeks 4-6)
+## Phase 2: FHIR Integration (Weeks 3-4)
 
-### Milestone 2.1: Package Loading and Schema Conversion
+### Milestone 2.1: Bridge Packages
 **Duration:** 1 week
 
 #### Tasks
-- `@atomic-ehr/packages` module
-- Load FHIR packages and extract StructureDefinitions
-- Use existing `@atomic-ehr/fhirschema` for conversion
-- Generate validation schemas for all resource types
+- Create `@atomic-ehr/fhir-bridge` package
+- Create `@atomic-ehr/packages` for package loading
+- Bridge integration with existing external packages
+- Schema conversion using existing `@atomic-ehr/fhirschema`
 
 ```typescript
+// @atomic-ehr/fhir-bridge - Bridge to external packages
 import { translate, type FHIRSchema, type StructureDefinition } from '@atomic-ehr/fhirschema';
+import { CanonicalManager } from '@atomic-ehr/fhir-canonical-manager';
 
-interface FhirPackage {
-  id: string;
-  version: string;
-  structureDefinitions: StructureDefinition[];
-  operationDefinitions: OperationDefinition[];
-  searchParameters: SearchParameter[];
-  fhirSchemas: Map<string, FHIRSchema>; // Converted schemas
+class FhirBridge {
+  private canonicalManager: CanonicalManager;
+
+  async loadPackage(packageName: string): Promise<FhirPackage>;
+  convertToSchemas(structDefs: StructureDefinition[]): Map<string, FHIRSchema>;
 }
 
+// @atomic-ehr/packages - Package loading functionality
 class PackageLoader {
-  load(packagePath: string): FhirPackage;
-  getStructureDefinitions(): StructureDefinition[];
-  getOperationDefinitions(): OperationDefinition[];
-  getFhirSchemas(): Map<string, FHIRSchema>;
+  constructor(private fhirBridge: FhirBridge);
+
+  async load(packageName: string): Promise<FhirPackage>;
+  getSchemas(): Map<string, FHIRSchema>;
 }
 
-class SchemaConverter {
-  convertStructureDefinition(structDef: StructureDefinition): FHIRSchema {
-    // Use existing fhirschema translate function
-    return translate(structDef);
-  }
-
-  convertPackage(structDefs: StructureDefinition[]): Map<string, FHIRSchema> {
-    const schemas = new Map<string, FHIRSchema>();
-    for (const structDef of structDefs) {
-      if (structDef.kind === 'resource') {
-        const schema = translate(structDef);
-        schemas.set(structDef.type, schema);
-      }
-    }
-    return schemas;
+// Integration into @atomic-ehr/server
+class FhirServer {
+  constructor(config: FhirServerConfig) {
+    this.bridge = new FhirBridge();
+    this.packages = new PackageLoader(this.bridge);
   }
 }
 ```
 
 #### Success Criteria
-- [ ] Load hl7.fhir.r4.core package successfully
-- [ ] Extract all StructureDefinitions from package
-- [ ] Convert StructureDefinitions to FHIRSchema using translate()
-- [ ] Generate FHIRSchema for Patient, Observation, Practitioner
-- [ ] Extract OperationDefinitions for $validate, $everything
+- [ ] Bridge packages created and integrated into server
+- [ ] Load hl7.fhir.r4.core via canonical-manager bridge
+- [ ] Convert to FHIRSchema using fhirschema bridge
+- [ ] FhirServer automatically incorporates bridges
+- [ ] No manual bridge wiring required by users
 
 ### Milestone 2.2: Dynamic Route Generation
 **Duration:** 1 week
@@ -213,86 +223,65 @@ class ResourceHandler {
 - [ ] GET /metadata (capabilities operation)
 - [ ] POST /Patient/$validate (custom operation)
 
-## Phase 3: Validation (Weeks 7-8)
+## Phase 3: Validation and Capabilities (Weeks 5-6)
 
-### Milestone 3.1: FHIRSchema Validation
+### Milestone 3.1: Validation Bridge Integration
 **Duration:** 1 week
 
 #### Tasks
-- Integrate existing `@atomic-ehr/fhirschema` for validation
-- Use validateSchema function with proper context
-- Return FHIR OperationOutcome on validation errors
+- Create `@atomic-ehr/validation-bridge` package
+- Integrate existing `@atomic-ehr/fhirschema` validation
+- Auto-integrate validation bridge into server
+- FHIR OperationOutcome error responses
 
 ```typescript
-import {
-  validateSchema,
-  type FHIRSchema,
-  type ValidationContext,
-  type ValidationResult,
-  type ValidationError
-} from '@atomic-ehr/fhirschema';
+// @atomic-ehr/validation-bridge - Validation integration bridge
+import { validateSchema, type ValidationContext } from '@atomic-ehr/fhirschema';
+import { Hook, HookContext } from '@atomic-ehr/core';
 
-class FhirSchemaValidator {
+class ValidationBridge {
   private schemas: Map<string, FHIRSchema> = new Map();
 
-  addSchema(resourceType: string, schema: FHIRSchema): void {
-    this.schemas.set(resourceType, schema);
+  setSchemas(schemas: Map<string, FHIRSchema>): void {
+    this.schemas = schemas;
   }
 
-  validate(resource: any, resourceType: string): OperationOutcome {
-    const schema = this.schemas.get(resourceType);
-    if (!schema) {
-      throw new Error(`No schema found for ${resourceType}`);
-    }
-
-    const context: ValidationContext = {
-      schemas: Object.fromEntries(this.schemas)
-    };
-
-    const result = validateSchema(context, [resourceType], resource);
-    if (!result.valid) {
-      return this.createOperationOutcome(result.errors);
-    }
-
-    return { resourceType: 'OperationOutcome', issue: [] };
-  }
-
-  private createOperationOutcome(errors: ValidationError[]): OperationOutcome {
+  createValidationHook(): Hook {
     return {
-      resourceType: 'OperationOutcome',
-      issue: errors.map(error => ({
-        severity: 'error',
-        code: 'structure',
-        details: { text: error.message || error.type },
-        expression: error.path.map(String)
-      }))
+      name: 'fhir-validation',
+      phase: 'before-create',
+      handler: async (context: HookContext) => {
+        const result = validateSchema(
+          { schemas: Object.fromEntries(this.schemas) },
+          [context.resourceType],
+          context.resource
+        );
+
+        if (!result.valid) {
+          throw new FhirValidationError(this.createOperationOutcome(result.errors));
+        }
+      }
     };
   }
 }
 
-class ValidationHook implements Hook {
-  name = 'fhirschema-validation';
-  phase = 'before-create';
+// Auto-integration into @atomic-ehr/server
+class FhirServer {
+  constructor(config: FhirServerConfig) {
+    this.validationBridge = new ValidationBridge();
 
-  constructor(private validator: FhirSchemaValidator) {}
-
-  handler(context: FhirContext): void {
-    const outcome = this.validator.validate(context.resource, context.resourceType);
-
-    if (outcome.issue.length > 0) {
-      throw new FhirValidationError(outcome);
-    }
+    // Auto-register validation hook
+    this.addHook(this.validationBridge.createValidationHook());
   }
 }
 ```
 
 #### Success Criteria
-- [ ] Use existing @atomic-ehr/fhirschema validateSchema function
-- [ ] Validate Patient resources using FHIRSchema
-- [ ] Check required fields, cardinality, and type constraints
-- [ ] Return detailed OperationOutcome with error paths and types
-- [ ] Validation runs for create, update, patch operations
-- [ ] Support validation error codes like FS001, FS002, etc.
+- [ ] Validation bridge auto-integrates into FhirServer
+- [ ] Uses existing @atomic-ehr/fhirschema validateSchema function
+- [ ] Validation hook automatically registered
+- [ ] Returns proper FHIR OperationOutcome on errors
+- [ ] No manual validation setup required by users
 
 ### Milestone 3.2: Capability Statement Generation
 **Duration:** 1 week
@@ -331,7 +320,7 @@ interface ResourceInteraction {
 - [ ] Include search parameters for each resource
 - [ ] GET /metadata returns valid CapabilityStatement
 
-## Phase 4: Polish (Weeks 9-10)
+## Phase 4: Polish and Documentation (Weeks 7-8)
 
 ### Milestone 4.1: Error Handling
 **Duration:** 1 week
@@ -399,17 +388,20 @@ Per https://build.fhir.org/http.html, server MUST support:
 
 ## Package Structure
 
-Final packages:
-- `@atomic-ehr/hooks` - Hook registry and execution
-- `@atomic-ehr/http` - HTTP server and routing
+### Core Framework Packages (within framework monorepo):
+- `@atomic-ehr/core` - **Existing package extended** with hooks system + base interfaces
+- `@atomic-ehr/server` - Main FHIR server with HTTP handling and dynamic routing
 - `@atomic-ehr/packages` - FHIR package loading and schema conversion
-- `@atomic-ehr/server` - Main server class and configuration
 
-External dependencies:
+### Bridge Packages (separate but incorporated):
+- `@atomic-ehr/fhir-bridge` - Bridge to fhirschema and canonical-manager
+- `@atomic-ehr/validation-bridge` - Validation integration bridge
+
+### External Dependencies (existing):
 - `@atomic-ehr/fhirschema` - FHIRSchema converter and validator (existing)
-- `@atomic-ehr/fhir-canonical-manager` - FHIR package management
+- `@atomic-ehr/fhir-canonical-manager` - FHIR package management (existing)
 
-FHIRSchema API (from existing package):
+### FHIRSchema API (from existing package):
 - `translate(structureDefinition)` - Convert StructureDefinition to FHIRSchema
 - `validateSchema(context, schemaUrls, resource)` - Validate resource against schema
 - Types: `FHIRSchema`, `ValidationContext`, `ValidationResult`, `ValidationError`
@@ -419,17 +411,18 @@ FHIRSchema API (from existing package):
 ```typescript
 import { FhirServer } from '@atomic-ehr/server';
 
+// Simple server setup - bridges auto-integrate
 const server = new FhirServer({
   packages: ['hl7.fhir.r4.core'],
   port: 3000
 });
 
-// Add custom validation hook
+// Add custom business logic via hooks
 server.addHook({
   name: 'custom-patient-validation',
   phase: 'before-create',
   resourceType: 'Patient',
-  handler: (context) => {
+  handler: async (context) => {
     // Custom business logic
     if (!context.resource.name?.[0]?.family) {
       throw new FhirValidationError('Patient must have family name');
@@ -437,27 +430,29 @@ server.addHook({
   }
 });
 
-await server.start();
+await server.listen();
+console.log('FHIR server running on port 3000');
 ```
 
-**Result**: Working FHIR R4 server with ~150 resource types and full CRUD operations.
+**What you get automatically**:
 
-**Auto-generated routes** (from hl7.fhir.r4.core StructureDefinitions):
+### Auto-integrated Bridges:
+- `@atomic-ehr/fhir-bridge` - Loads packages via canonical-manager
+- `@atomic-ehr/validation-bridge` - Validates using fhirschema
+- `@atomic-ehr/packages` - Converts StructureDefinitions to schemas
+
+### Auto-generated Routes (from hl7.fhir.r4.core):
 - `GET /Patient/123` (read Patient)
-- `POST /Patient` (create Patient)
-- `PUT /Patient/123` (update Patient)
+- `POST /Patient` (create Patient) + auto-validation
+- `PUT /Patient/123` (update Patient) + auto-validation
 - `DELETE /Patient/123` (delete Patient)
 - `GET /Patient?name=smith` (search Patients)
-- `GET /Observation/456` (read Observation)
-- `POST /Observation` (create Observation)
 - ... (same for all ~150 R4 resource types)
 - `GET /metadata` (CapabilityStatement)
 
-**Auto-generated validation** (using @atomic-ehr/fhirschema):
-- Patient.name cardinality 1..* (required, array)
-- Patient.birthDate must be valid date format
-- Patient.gender must be enum value (male|female|other|unknown)
-- Observation.status required enum (registered|preliminary|final|amended|...)
-- Observation.code required CodeableConcept
-- Observation.subject required Reference(Patient|Group|Device|Location)
-- ... (all R4 constraints with rich FHIRSchema validation)
+### Auto-registered Hooks:
+- FHIR validation (before create/update/patch)
+- Error handling (FHIR OperationOutcome responses)
+- Capability statement generation
+
+**Result**: Production-ready FHIR R4 server in ~15 lines of code with full CRUD operations, validation, and FHIR compliance.

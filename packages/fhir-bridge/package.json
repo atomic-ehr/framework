@@ -1,0 +1,39 @@
+{
+  "name": "@atomic-ehr/fhir-bridge",
+  "version": "0.1.0",
+  "description": "Bridge package for integrating FHIR canonical-manager and fhirschema into atomic-ehr framework",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "fhir",
+    "bridge",
+    "canonical-manager",
+    "fhirschema",
+    "atomic-ehr"
+  ],
+  "author": "Atomic EHR Team",
+  "license": "MIT",
+  "dependencies": {
+    "@atomic-ehr/fhir-canonical-manager": "workspace:*",
+    "@atomic-ehr/fhirschema": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {}
+}
