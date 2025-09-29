@@ -146,6 +146,19 @@ importers:
         specifier: ^5.3.0
         version: 5.9.2
 
+  packages/validation-bridge:
+    dependencies:
+      '@atomic-ehr/core':
+        specifier: workspace:*
+        version: link:../../../core
+      '@atomic-ehr/fhirschema':
+        specifier: workspace:*
+        version: link:../../../fhirschema
+    devDependencies:
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.2
+
 packages:
 
   '@atomic-ehr/hl7.fhir.r4.core@0.0.1':

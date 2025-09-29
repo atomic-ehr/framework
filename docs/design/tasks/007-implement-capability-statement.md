@@ -599,19 +599,19 @@ packages/server/src/
 ## Success Criteria
 
 ### Must Have
-- [ ] Generate CapabilityStatement for loaded R4 Core
-- [ ] List all supported resource types (Patient, Observation, etc.)
-- [ ] Report supported interactions per resource (create, read, update, delete, search)
-- [ ] Include search parameters for each resource
-- [ ] GET /metadata returns valid CapabilityStatement
-- [ ] Capability statement reflects actual server capabilities
+- [x] Generate CapabilityStatement for loaded R4 Core
+- [x] List all supported resource types (Patient, Observation, etc.)
+- [x] Report supported interactions per resource (create, read, update, delete, search)
+- [x] Include search parameters for each resource
+- [x] GET /metadata returns valid CapabilityStatement
+- [x] Capability statement reflects actual server capabilities
 
 ### FHIR Compliance
-- [ ] CapabilityStatement conforms to FHIR R4 specification
-- [ ] All required fields are present and valid
-- [ ] Resource capabilities match actual server capabilities
-- [ ] Search parameters are accurately reported
-- [ ] Supported profiles are listed correctly
+- [x] CapabilityStatement conforms to FHIR R4 specification
+- [x] All required fields are present and valid
+- [x] Resource capabilities match actual server capabilities
+- [x] Search parameters are accurately reported
+- [x] Supported profiles are listed correctly
 
 ### Testing Requirements
 - [ ] Unit tests for CapabilityStatementGenerator
@@ -622,10 +622,10 @@ packages/server/src/
 - [ ] Caching tests for metadata endpoint
 
 ### Performance Requirements
-- [ ] Capability statement generation completes in <1 second
-- [ ] /metadata endpoint responds in <200ms
-- [ ] Capability statement caching improves response times
-- [ ] Memory usage for capability statement is reasonable
+- [x] Capability statement generation completes in <1 second
+- [x] /metadata endpoint responds in <200ms
+- [x] Capability statement caching improves response times
+- [x] Memory usage for capability statement is reasonable
 
 ## Acceptance Criteria
 

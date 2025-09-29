@@ -1,0 +1,24 @@
+{
+  "name": "@atomic-ehr/validation-bridge",
+  "version": "0.1.0",
+  "description": "Validation bridge integrating @atomic-ehr/fhirschema with hooks-based server",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "keywords": ["fhir", "validation", "healthcare"],
+  "author": "Atomic EHR Team",
+  "license": "MIT",
+  "dependencies": {
+    "@atomic-ehr/core": "workspace:*",
+    "@atomic-ehr/fhirschema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

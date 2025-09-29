@@ -15,6 +15,33 @@ export interface FhirServerConfig {
   /** Host address (defaults to localhost) */
   host?: string;
 
+  /** Server name */
+  serverName?: string;
+
+  /** Server version */
+  serverVersion?: string;
+
+  /** Server description */
+  description?: string;
+
+  /** FHIR version */
+  fhirVersion?: string;
+
+  /** Security configuration for capability statement */
+  securityConfig?: {
+    cors?: boolean;
+    authentication?: Array<{
+      type: string;
+      display: string;
+      description?: string;
+    }>;
+    authorization?: Array<{
+      type: string;
+      display: string;
+      description?: string;
+    }>;
+  };
+
   /** FHIR packages to load automatically */
   packages?: string[];
 
@@ -55,6 +82,61 @@ export interface FhirServerConfig {
 
   /** Maximum request body size in bytes */
   maxBodySize?: number;
+
+  /** Storage adapter for FHIR resources */
+  storage?: any; // StorageAdapter from generation module
+
+  /** Enable dynamic route generation from packages */
+  enableDynamicRoutes?: boolean;
+
+  /** Default capabilities for dynamically generated routes */
+  defaultCapabilities?: {
+    read?: boolean;
+    vread?: boolean;
+    update?: boolean;
+    patch?: boolean;
+    create?: boolean;
+    delete?: boolean;
+    searchType?: boolean;
+    historyInstance?: boolean;
+    historyType?: boolean;
+  };
+
+  /** Enabled FHIR operations */
+  enabledOperations?: string[];
+
+  /** Validation configuration */
+  validation?: {
+    enabled?: boolean;
+    validateOnCreate?: boolean;
+    validateOnUpdate?: boolean;
+    validateOnPatch?: boolean;
+    strictMode?: boolean;
+    profileValidation?: boolean;
+  };
+
+  /** Error handling configuration */
+  errorHandling?: {
+    includeStackTrace?: boolean;
+    logErrors?: boolean;
+    logLevel?: 'error' | 'warn' | 'info' | 'debug';
+    sanitizeErrors?: boolean;
+    detailedValidationErrors?: boolean;
+    enableErrorMetrics?: boolean;
+  };
+
+  /** Request/response logging configuration */
+  requestLogging?: {
+    logRequests?: boolean;
+    logResponses?: boolean;
+    logBodies?: boolean;
+    logHeaders?: boolean;
+    slowRequestThreshold?: number;
+    sanitizeHeaders?: string[];
+  };
+
+  /** Debug mode (enables additional logging and diagnostics) */
+  debug?: boolean;
 }
 
 /**

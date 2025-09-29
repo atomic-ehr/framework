@@ -19,6 +19,32 @@ export { ResponseHandler } from './response.js';
 // FHIR routing system
 export * from './routing/index.js';
 
+// Dynamic route generation
+export * from './generation/index.js';
+
+// Capability statement generation
+export * from './capability/index.js';
+
+// Error handling
+export * from './error/index.js';
+
+// Validation bridge (re-export for convenience)
+export {
+  ValidationBridge,
+  ValidationMetricsCollector,
+  FhirValidationError,
+  mapValidationErrorCode,
+  createOperationOutcome,
+  createProfileValidationOperationOutcome,
+  createValidationErrorOperationOutcome
+} from '@atomic-ehr/validation-bridge';
+
+export type {
+  ValidationBridgeConfig,
+  ValidationMetrics,
+  ExtendedValidationResult
+} from '@atomic-ehr/validation-bridge';
+
 // Package integration
 export { PackageIntegration, createPackageIntegration } from './integration/packages.js';
 export type {

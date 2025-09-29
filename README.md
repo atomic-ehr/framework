@@ -1,121 +1,151 @@
-# Atomic FHIR Framework
+# Atomic EHR Framework
 
-A FHIR-native web framework for JavaScript/Bun that treats FHIR resources as first-class citizens. Instead of adapting traditional MVC patterns, Atomic uses FHIR's own concepts: StructureDefinitions for models, OperationDefinitions for business logic, and CapabilityStatements for API contracts.
+> A modern, hook-based FHIR R4 server framework for JavaScript/TypeScript built on Bun
+
+A production-ready FHIR server framework that makes building healthcare applications simple, flexible, and powerful. Built from the ground up with a hook-based architecture that gives you complete control over the request lifecycle.
 
 ## 🚀 Features
 
-- 🏥 **FHIR-Native**: Built specifically for FHIR, not adapted from generic frameworks
-- ⚡ **Bun Powered**: Leverages Bun's speed and built-in SQLite support
-- 📦 **Monorepo Architecture**: Modular packages with `@atomic-fhir/core`
-- 🔍 **Auto-Discovery**: Automatically finds and registers resources, operations, and hooks
-- 🪝 **Flexible Hooks**: Lifecycle hooks with global, resource-specific, or multi-resource targeting
-- 📋 **Full FHIR Capabilities**: Support for all FHIR interaction types (read, vread, update, patch, delete, history, search, etc.)
-- 🎯 **Custom Handlers**: Override any CRUD operation with custom business logic
-- 📚 **Package Management**: Auto-download and load FHIR IG packages from official registries
-- 🔧 **Operations**: First-class support for FHIR operations ($match, $everything, etc.)
-- 💾 **Storage Adapters**: SQLite by default, extensible to PostgreSQL, MongoDB
-- ✨ **TypeScript Support**: Full TypeScript definitions for excellent IDE experience
-- 🏗️ **Auto-Registration**: Automatically registers base resources from loaded packages
-- 📊 **Supported Profiles**: Metadata endpoint reports all supported profiles per resource
+- ⚡ **Hook-Based Architecture** - Inject custom logic at any point in the request lifecycle
+- 🏥 **FHIR R4 Compliant** - Full REST API implementation with automatic validation
+- 📦 **Package Management** - Load FHIR Implementation Guides dynamically
+- 🚀 **Auto-Routing** - Dynamic route generation from FHIR packages
+- ✅ **Built-in Validation** - Automatic resource validation using FHIRSchema
+- 🔧 **Custom Operations** - Easy implementation of $match, $everything, etc.
+- 💾 **Storage Adapters** - In-memory (default), SQLite, PostgreSQL support
+- 📊 **Capability Statement** - Auto-generated metadata endpoint
+- ⚡ **High Performance** - Built on Bun runtime for maximum speed
+- 🛡️ **Type Safety** - Full TypeScript definitions included
+- 📝 **Request Logging** - Comprehensive logging and debugging tools
+- 🎯 **Flexible Configuration** - Control validation, error handling, and more
 
 ## Quick Start
 
+### Installation
+
 ```bash
-# Install Bun if you haven't already
+# Install Bun (if not already installed)
 curl -fsSL https://bun.sh/install | bash
 
-# Clone the repository
-git clone <repository-url>
-cd fhir-framework
-
-# Install dependencies
-bun install
-
-# Run an example server
-cd examples/minimal-server
-bun run dev
+# Install the framework
+bun add @atomic-ehr/server
 ```
 
-## Installation (NPM Package)
-
-```bash
-bun add @atomic-fhir/core
-# or
-npm install @atomic-fhir/core
-```
-
-## Quick Start - Zero Configuration
-
-```javascript
-// src/server.js
-import { Atomic } from '@atomic-fhir/core';
-
-const app = new Atomic({
-  server: {
-    name: 'My FHIR Server',
-    port: 3000
-  }
-  // Autoload is enabled by default!
-});
-
-await app.start();
-```
-
-Atomic automatically discovers components from `src/` folders:
-- `src/resources/` - FHIR resource definitions
-- `src/operations/` - Custom FHIR operations
-- `src/middleware/` - Express-style middleware
-- `src/hooks/` - Lifecycle hooks
-
-## TypeScript Support
-
-Full TypeScript support with comprehensive type definitions:
+### Create Your First Server
 
 ```typescript
-import { 
-  Atomic, 
-  defineResource,
-  type AtomicConfig,
-  type ResourceDefinition,
-  type HandlerContext 
-} from '@atomic-fhir/core';
+import { FhirServer } from '@atomic-ehr/server';
 
-const config: AtomicConfig = {
-  server: {
-    name: 'TypeScript FHIR Server',
-    port: 3000,
-    fhirVersion: '4.0.1'
-  },
-  packages: [
-    { 
-      package: 'hl7.fhir.r4.core',
-      version: '4.0.1',
-      npmRegistry: 'https://get-ig.org'
-    }
-  ]
-};
+const server = new FhirServer({
+  port: 3000,
+  packages: ['hl7.fhir.r4.core#4.0.1']
+});
 
-const patientResource: ResourceDefinition = defineResource({
-  resourceType: 'Patient',
-  capabilities: {
-    read: true,
-    vread: true,
-    update: true,
-    'update-conditional': true,
-    patch: true,
-    'search-type': true
-  },
-  handlers: {
-    async create(req, context: HandlerContext) {
-      // Full type safety and IntelliSense
-      const patient = await req.json();
-      return {
-        status: 201,
-        body: patient
-      };
+await server.start();
+
+console.log('🚀 FHIR Server running on http://localhost:3000');
+```
+
+That's it! Your server now supports:
+- ✅ Full CRUD operations for all FHIR R4 resources
+- ✅ Search with parameters
+- ✅ Automatic validation
+- ✅ Capability statement at `/metadata`
+
+### Try it out
+
+```bash
+# Get server metadata
+curl http://localhost:3000/metadata
+
+# Create a patient
+curl -X POST http://localhost:3000/Patient \
+  -H "Content-Type: application/fhir+json" \
+  -d '{
+    "resourceType": "Patient",
+    "name": [{"family": "Doe", "given": ["John"]}],
+    "gender": "male"
+  }'
+
+# Search patients
+curl http://localhost:3000/Patient
+
+# Get a specific patient (use ID from create response)
+curl http://localhost:3000/Patient/{id}
+```
+
+## Hook System
+
+The framework's most powerful feature is its hook system. Hooks let you inject custom logic at any point in the request lifecycle.
+
+### Hook Phases
+
+1. **preRequest** - Before any request processing (auth, rate limiting)
+2. **preHandler** - After routing, before handler (validation, transformation)
+3. **onResponse** - After successful handling (logging, audit)
+4. **onError** - When an error occurs (error logging)
+
+### Example: Adding Hooks
+
+```typescript
+import { FhirServer } from '@atomic-ehr/server';
+
+const server = new FhirServer({
+  port: 3000,
+  packages: ['hl7.fhir.r4.core#4.0.1']
+});
+
+// Add authentication hook
+server.addHook({
+  name: 'bearer-auth',
+  phase: 'preRequest',
+  priority: 95,
+  handler: async (context) => {
+    const token = context.headers.authorization;
+    if (!token) {
+      throw new FhirUnauthorizedError('Authentication required');
     }
+    // Validate and add user to context
+    context.user = await validateToken(token);
+    return context;
   }
 });
+
+// Add automatic timestamping
+server.addHook({
+  name: 'auto-timestamp',
+  phase: 'preHandler',
+  resources: '*',
+  priority: 70,
+  handler: async (context) => {
+    if (['create', 'update'].includes(context.operation)) {
+      if (!context.body.meta) {
+        context.body.meta = {};
+      }
+      context.body.meta.lastUpdated = new Date().toISOString();
+    }
+    return context;
+  }
+});
+
+// Add audit logging
+server.addHook({
+  name: 'audit-logger',
+  phase: 'onResponse',
+  priority: 50,
+  handler: async (context) => {
+    if (['create', 'update', 'delete'].includes(context.operation)) {
+      await auditLog.write({
+        action: context.operation,
+        resourceType: context.resourceType,
+        userId: context.user?.id
+      });
+    }
+    return context;
+  }
+});
+
+await server.start();
 ```
 
 ## Package Management
@@ -314,196 +344,217 @@ The `/metadata` endpoint automatically reports supported profiles for each resou
 }
 ```
 
-## Project Structure
-
-### Framework Structure (Monorepo)
-```
-fhir-framework/
-├── packages/
-│   └── core/                    # @atomic-fhir/core package
-│       ├── src/
-│       │   ├── index.js         # Main exports
-│       │   ├── index.d.ts       # TypeScript definitions
-│       │   ├── core/            # Framework core
-│       │   └── storage/         # Storage adapters
-│       └── package.json
-├── examples/                    # Example servers
-│   ├── minimal-server/
-│   ├── r4-core-server/
-│   ├── typescript-test/
-│   └── ...
-└── package.json                 # Root with workspaces
-```
-
-### User Project Structure
-```
-my-fhir-server/
-├── src/
-│   ├── server.js               # Server configuration
-│   ├── resources/              # FHIR resources
-│   │   └── Patient.js
-│   ├── operations/             # FHIR operations
-│   │   └── match.js
-│   ├── hooks/                  # Lifecycle hooks
-│   │   └── timestamps.js
-│   └── middleware/             # HTTP middleware
-│       └── auth.js
-├── packages/                   # FHIR IG packages (.tgz files)
-└── package.json
-```
-
 ## Examples
 
-### Minimal Server (3 lines!)
+The framework includes comprehensive examples demonstrating different features:
+
+- **[01-basic-server](examples/01-basic-server)** - Minimal FHIR server setup
+- **[02-with-hooks](examples/02-with-hooks)** - Custom business logic with hooks
+- **[03-with-auth](examples/03-with-auth)** - Authentication and authorization
+- **[04-custom-operations](examples/04-custom-operations)** - Implementing custom operations
+
+Each example is fully documented and runnable:
+
 ```bash
-cd examples/minimal-server
-bun run dev
+cd examples/01-basic-server
+bun server.js
 ```
 
-### R4 Core Server
-Full FHIR R4 server with all 147 resources:
-```bash
-cd examples/r4-core-server
-bun run dev
+## Documentation
+
+Comprehensive documentation is available in the `/docs` directory:
+
+- **[Getting Started](docs/getting-started.md)** - 15-minute tutorial to build your first server
+- **[API Reference](docs/api-reference.md)** - Complete API documentation
+- **[Hook System](docs/hook-system.md)** - In-depth guide to hooks
+- **[Configuration](docs/configuration.md)** - All configuration options explained
+- **[Examples README](examples/README.md)** - Guide to all examples
+
+## Architecture
+
+### Framework Structure
+
+```
+framework/
+├── packages/
+│   ├── server/                    # @atomic-ehr/server - HTTP server
+│   ├── fhir-bridge/               # @atomic-ehr/fhir-bridge - FHIR integration
+│   ├── validation-bridge/         # @atomic-ehr/validation-bridge - Validation
+│   └── packages/                  # @atomic-ehr/packages - Package management
+├── examples/                      # Example applications
+│   ├── 01-basic-server/
+│   ├── 02-with-hooks/
+│   ├── 03-with-auth/
+│   └── 04-custom-operations/
+├── docs/                          # Documentation
+│   ├── getting-started.md
+│   ├── api-reference.md
+│   ├── hook-system.md
+│   └── configuration.md
+└── README.md
 ```
 
-### TypeScript Example
-Full TypeScript support with type safety:
-```bash
-cd examples/typescript-test
-bun run dev
+### Request Flow
+
+```
+Request
+  ↓
+[preRequest hooks]          ← Auth, rate limiting
+  ↓
+Router (URL parsing)
+  ↓
+[preHandler hooks]          ← Validation, transformation
+  ↓
+Handler (CRUD operation)
+  ↓
+[onResponse hooks]          ← Audit, logging
+  ↓
+Response
+
+If error occurs at any point:
+  ↓
+[onError hooks]             ← Error logging, custom responses
+  ↓
+Error Response
 ```
 
-### Custom Handlers Server
-Advanced business logic and custom handlers:
-```bash
-cd examples/custom-handlers-server
-bun run dev
-```
+## Packages
 
-## Operations
+The framework is split into focused packages:
 
-Define FHIR operations with full parameter support:
+### @atomic-ehr/server
 
-```javascript
-export default defineOperation({
-  name: 'match',
-  resource: 'Patient',
-  type: true,
-  instance: false,
-  parameters: {
-    input: [
-      {
-        name: 'resource',
-        min: 1,
-        max: '1',
-        type: 'Patient'
-      }
-    ],
-    output: [
-      {
-        name: 'return',
-        min: 1,
-        max: '1',
-        type: 'Bundle'
-      }
-    ]
-  },
-  async handler(params, context) {
-    // Implementation
-    return {
-      resourceType: 'Bundle',
-      type: 'searchset',
-      entry: []
-    };
+The main server package providing the HTTP server and hook system.
+
+**[Read the docs →](packages/server/README.md)**
+
+### @atomic-ehr/fhir-bridge
+
+Bridge package integrating FHIR canonical-manager and fhirschema.
+
+**[Read the docs →](packages/fhir-bridge/README.md)**
+
+### @atomic-ehr/validation-bridge
+
+Validation integration using FHIRSchema.
+
+**[Read the docs →](packages/validation-bridge/README.md)**
+
+### @atomic-ehr/packages
+
+Package loader and management for FHIR Implementation Guides.
+
+**[Read the docs →](packages/packages/README.md)**
+
+## Custom Operations
+
+Implement custom FHIR operations using hooks:
+
+```typescript
+server.addHook({
+  name: 'patient-summary',
+  phase: 'preHandler',
+  priority: 100,
+  handler: async (context) => {
+    const match = context.url.match(/^\/Patient\/([^/]+)\/\$summary/);
+    if (match && context.method === 'GET') {
+      const patientId = match[1];
+      const storage = server.getStorage();
+      const patient = await storage.read('Patient', patientId);
+
+      context.setResponse({
+        statusCode: 200,
+        responseBody: {
+          resourceType: 'Bundle',
+          type: 'collection',
+          entry: [{ resource: patient.resource }]
+        }
+      });
+
+      context.takeOver();
+    }
+    return context;
   }
 });
 ```
 
-## Storage Adapters
-
-Pluggable storage with SQLite default:
-
-```javascript
-const app = new Atomic({
-  storage: {
-    adapter: 'sqlite',  // or 'postgresql', 'mongodb'
-    config: {
-      database: './fhir.db'
-    }
-  }
-});
-```
-
-## CLI Tool
+## Development
 
 ```bash
-# Create new project
-bun cli.js new my-fhir-server
+# Install dependencies
+bun install
 
-# Generate resources
-bun cli.js generate resource Patient
+# Run tests
+bun test
 
-# Generate operations
-bun cli.js generate operation match
+# Type checking
+cd packages/server
+bun run typecheck
+
+# Build
+bun run build
+
+# Run linter
+bun run lint
+
+# Format code
+bun run format
 ```
 
-## Configuration Options
+## Production Deployment
 
-```javascript
-const app = new Atomic({
-  server: {
-    name: 'My FHIR Server',
-    port: 3000,
-    fhirVersion: '4.0.1'
-  },
-  
-  // Package management
-  packages: [
-    { package: 'hl7.fhir.r4.core', version: '4.0.1', npmRegistry: 'https://get-ig.org' }
-  ],
-  
-  // Auto-discovery (enabled by default)
-  autoload: {
-    enabled: true,
-    paths: {
-      resources: 'src/resources',
-      operations: 'src/operations',
-      hooks: 'src/hooks',
-      middleware: 'src/middleware'
-    }
-  },
-  
-  // Storage configuration
-  storage: {
-    adapter: 'sqlite',
-    config: {
-      database: ':memory:'
-    }
-  },
-  
-  // Validation
-  validation: {
-    strict: true
-  }
-});
+### Environment Variables
+
+```bash
+PORT=3000
+HOST=0.0.0.0
+NODE_ENV=production
+DB_TYPE=postgresql
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=fhir
+DB_USER=fhir_user
+DB_PASSWORD=your_password
+TLS_ENABLED=true
+TLS_CERT=/path/to/cert.pem
+TLS_KEY=/path/to/key.pem
+```
+
+### Docker
+
+```dockerfile
+FROM oven/bun:1
+
+WORKDIR /app
+
+COPY package.json bun.lockb ./
+RUN bun install --production
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["bun", "server.js"]
 ```
 
 ## Design Philosophy
 
-Atomic represents a paradigm shift in FHIR application development:
+The Atomic EHR Framework is built on these principles:
 
-- **Models → StructureDefinitions**: Use FHIR's native schema system
-- **Controllers → OperationDefinitions**: Business logic as FHIR operations
-- **Routes → CapabilityStatements**: API contracts using FHIR's own format
-- **Plugins → Implementation Guides**: Extensions through standard FHIR IGs
-
-This approach ensures your FHIR server is not just compliant, but natively speaks the language of healthcare interoperability.
+- **Hook-First Architecture** - Everything is extensible through hooks
+- **FHIR-Native** - Built specifically for FHIR, not adapted from generic frameworks
+- **Developer Experience** - Simple, intuitive APIs with excellent TypeScript support
+- **Production Ready** - Built for real-world healthcare applications
+- **Performance** - Leverages Bun for maximum speed
 
 ## Contributing
 
-Contributions are welcome! Please see [CLAUDE.md](CLAUDE.md) for development guidelines.
+Contributions are welcome! See [CLAUDE.md](CLAUDE.md) for development guidelines.
 
 ## License
 
-MIT
+MIT © Atomic EHR Team
+
+---
+
+**Built with ❤️ for healthcare developers**

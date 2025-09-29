@@ -27,6 +27,10 @@ import { FhirRouter, FhirRoutingError, defaultNotFoundHandler } from './routing/
 import { PackageIntegration, createPackageIntegration } from './integration/packages.js';
 import type { LoadedPackage } from '@atomic-ehr/packages';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
+import { RouteGenerator, MemoryStorageAdapter, type StorageAdapter, type ResourceCapabilities } from './generation/index.js';
+import { ValidationBridge, ValidationMetricsCollector, FhirValidationError } from '@atomic-ehr/validation-bridge';
+import { CapabilityStatementGenerator, MetadataHandler, type CapabilityStatement } from './capability/index.js';
+import { ErrorHandler, RequestResponseLogger, DebugSupport, createDebugSupport } from './error/index.js';
 
 /**
  * FHIR Server with integrated hooks system
@@ -40,6 +44,16 @@ export class FhirServer extends EventEmitter {
   private baseContext: BaseContext;
   private stats: ServerStats;
   private packageIntegration: PackageIntegration | null = null;
+  private routeGenerator: RouteGenerator | null = null;
+  private validationBridge: ValidationBridge | null = null;
+  private validationMetrics: ValidationMetricsCollector | null = null;
+  private storage: StorageAdapter;
+  private dynamicRoutes: Map<string, any> = new Map();
+  private capabilityGenerator: CapabilityStatementGenerator | null = null;
+  private metadataHandler: MetadataHandler | null = null;
+  private errorHandler: ErrorHandler | null = null;
+  private requestLogger: RequestResponseLogger | null = null;
+  private debugSupport: DebugSupport | null = null;
   private isStarted = false;
 
   constructor(config: FhirServerConfig) {
@@ -51,12 +65,25 @@ export class FhirServer extends EventEmitter {
       maxBodySize: 10 * 1024 * 1024, // 10MB
       cors: { enabled: false },
       logging: { level: 'info', format: 'text' },
+      enableDynamicRoutes: true, // Enable by default
       ...config
     };
 
     this.hooksManager = new HooksManager();
     this.router = new FhirRouter();
     this.stats = this.initializeStats();
+
+    // Initialize storage
+    this.storage = this.config.storage || new MemoryStorageAdapter();
+
+    // Initialize route generator if dynamic routes are enabled
+    if (this.config.enableDynamicRoutes) {
+      this.routeGenerator = new RouteGenerator({
+        storage: this.storage,
+        defaultCapabilities: this.config.defaultCapabilities,
+        enabledOperations: this.config.enabledOperations as any
+      });
+    }
 
     // Create base context with default services
     this.baseContext = ContextFactory.createBaseContext({
@@ -78,6 +105,55 @@ export class FhirServer extends EventEmitter {
     if (this.config.hooks) {
       this.config.hooks.forEach(hook => this.addHook(hook));
     }
+
+    // Initialize validation bridge if enabled
+    if (this.config.validation?.enabled !== false) {
+      this.validationBridge = new ValidationBridge(this.config.validation);
+      this.validationMetrics = new ValidationMetricsCollector();
+      this.registerValidationHooks();
+    }
+
+    // Register dynamic route generation hooks
+    if (this.routeGenerator) {
+      this.registerDynamicRouteHooks();
+    }
+
+    // Initialize capability statement generator
+    this.capabilityGenerator = new CapabilityStatementGenerator({
+      serverName: config.serverName || '@atomic-ehr/server',
+      serverVersion: config.serverVersion || '0.1.0',
+      serverDescription: config.description || 'FHIR Server with Hook-based Architecture',
+      fhirVersion: config.fhirVersion || '4.0.1',
+      enabledOperations: config.enabledOperations || [],
+      securityConfiguration: config.securityConfig || { cors: true }
+    });
+
+    this.metadataHandler = new MetadataHandler(this.capabilityGenerator, this.packageIntegration || undefined);
+
+    // Register capability hooks
+    this.registerCapabilityHooks();
+
+    // Register /metadata endpoint
+    this.registerMetadataEndpoint();
+
+    // Initialize error handling
+    this.errorHandler = new ErrorHandler({
+      includeStackTrace: config.debug || false,
+      ...config.errorHandling
+    });
+    this.addHook(this.errorHandler.createErrorHandlingHook());
+
+    // Initialize request/response logging
+    if (config.requestLogging?.logRequests !== false || config.requestLogging?.logResponses !== false) {
+      this.requestLogger = new RequestResponseLogger(config.requestLogging);
+      const loggingHooks = this.requestLogger.createLoggingHooks();
+      loggingHooks.forEach(hook => this.addHook(hook));
+    }
+
+    // Initialize debug support
+    this.debugSupport = config.debug ? new DebugSupport(true) : createDebugSupport();
+    const debugHooks = this.debugSupport.createDebugHooks();
+    debugHooks.forEach(hook => this.addHook(hook));
   }
 
   /**
@@ -674,6 +750,357 @@ export class FhirServer extends EventEmitter {
   getSchema(resourceType: string): FHIRSchema | undefined {
     const schemas = this.getSchemas();
     return schemas.get(resourceType);
+  }
+
+  /**
+   * Get dynamic routes
+   */
+  getDynamicRoutes(): any[] {
+    return Array.from(this.dynamicRoutes.values());
+  }
+
+  /**
+   * Get resource capabilities
+   */
+  getResourceCapabilities(resourceType: string): ResourceCapabilities | undefined {
+    return this.routeGenerator?.getResourceCapabilities(resourceType);
+  }
+
+  /**
+   * Get storage adapter
+   */
+  getStorage(): StorageAdapter {
+    return this.storage;
+  }
+
+  /**
+   * Get validation bridge
+   */
+  getValidationBridge(): ValidationBridge | null {
+    return this.validationBridge;
+  }
+
+  /**
+   * Get validation metrics
+   */
+  getValidationMetrics() {
+    return this.validationMetrics?.getSummary();
+  }
+
+  /**
+   * Validate a resource manually
+   */
+  async validateResource(resourceType: string, resource: any) {
+    if (!this.validationBridge) {
+      throw new Error('Validation bridge not initialized');
+    }
+
+    return this.validationBridge.validateResource(resourceType, resource);
+  }
+
+  /**
+   * Get capability statement
+   */
+  getCapabilityStatement(): CapabilityStatement | null {
+    return this.capabilityGenerator?.generate() || null;
+  }
+
+  /**
+   * Get capability generator
+   */
+  getCapabilityGenerator(): CapabilityStatementGenerator | null {
+    return this.capabilityGenerator;
+  }
+
+  /**
+   * Get error handler
+   */
+  getErrorHandler(): ErrorHandler | null {
+    return this.errorHandler;
+  }
+
+  /**
+   * Get error metrics
+   */
+  getErrorMetrics() {
+    return this.errorHandler?.getSummary();
+  }
+
+  /**
+   * Get request logger
+   */
+  getRequestLogger(): RequestResponseLogger | null {
+    return this.requestLogger;
+  }
+
+  /**
+   * Get debug support
+   */
+  getDebugSupport(): DebugSupport | null {
+    return this.debugSupport;
+  }
+
+  /**
+   * Register validation hooks
+   */
+  private registerValidationHooks(): void {
+    if (!this.validationBridge) {
+      return;
+    }
+
+    // Configure validation schemas after packages are loaded
+    this.addHook({
+      name: 'validation-schema-setup',
+      phase: 'onRouteRegister',
+      priority: 85, // After packages loaded, before route generation
+      handler: async (context) => {
+        if (!this.packageIntegration) {
+          return context;
+        }
+
+        const schemas = this.packageIntegration.getSchemas();
+        this.validationBridge!.setSchemas(schemas);
+
+        this.log('info', 'Validation schemas configured', {
+          schemaCount: schemas.size,
+          resourceTypes: Array.from(schemas.keys()).slice(0, 10)
+        });
+
+        return context;
+      }
+    });
+
+    // Register validation hooks
+    this.addHook(this.validationBridge.createValidationHook());
+
+    if (this.config.validation?.profileValidation !== false) {
+      this.addHook(this.validationBridge.createProfileValidationHook());
+    }
+
+    // Register metrics collection hook
+    if (this.validationMetrics) {
+      this.addHook(this.validationMetrics.createMetricsHook());
+    }
+
+    // Handle validation errors
+    this.addHook({
+      name: 'validation-error-handler',
+      phase: 'onError',
+      priority: 90,
+      handler: async (context: any) => {
+        if (context.error instanceof FhirValidationError) {
+          context.setResponse({
+            statusCode: context.error.statusCode,
+            responseHeaders: {
+              'Content-Type': 'application/fhir+json; charset=utf-8',
+              'X-Request-ID': context.requestId
+            },
+            responseBody: context.error.operationOutcome,
+            timing: {
+              startTime: context.startTime,
+              endTime: Date.now(),
+              duration: Date.now() - context.startTime,
+              hookDuration: 0
+            }
+          });
+          context.handled = true;
+
+          this.log('warn', 'FHIR validation failed', {
+            resourceType: context.resourceType,
+            operation: context.operation,
+            issues: context.error.operationOutcome.issue?.length || 0
+          });
+        }
+
+        return context;
+      }
+    });
+  }
+
+  /**
+   * Register dynamic route generation hooks
+   */
+  private registerDynamicRouteHooks(): void {
+    if (!this.routeGenerator) {
+      return;
+    }
+
+    // Generate routes after packages are loaded
+    this.addHook({
+      name: 'dynamic-route-generator',
+      phase: 'onRouteRegister',
+      priority: 80,
+      handler: async (context) => {
+        const packages = this.packageIntegration?.getLoadedPackages() || [];
+
+        if (packages.length === 0) {
+          this.log('info', 'No packages loaded, skipping dynamic route generation');
+          return context;
+        }
+
+        this.log('info', 'Generating dynamic routes from packages...', {
+          packageCount: packages.length
+        });
+
+        try {
+          const routes = this.routeGenerator!.generateFromPackages(packages);
+
+          // Register routes with router
+          let successCount = 0;
+          for (const route of routes) {
+            try {
+              // Check if route already exists (avoid duplicates with default routes)
+              if (!this.router.hasRoute(route.method, route.pattern)) {
+                this.router.addRoute(route);
+                this.dynamicRoutes.set(`${route.method}:${route.pattern}`, route);
+                successCount++;
+              }
+            } catch (error) {
+              this.log('warn', `Failed to add dynamic route ${route.method} ${route.pattern}:`, error);
+            }
+          }
+
+          const resourceTypes = [...new Set(packages.flatMap(p => Object.keys(p.resources)))];
+
+          this.log('info', 'Dynamic routes generated successfully', {
+            totalRoutes: routes.length,
+            registeredRoutes: successCount,
+            resourceTypes: resourceTypes.length
+          });
+        } catch (error) {
+          this.log('error', 'Failed to generate dynamic routes:', error);
+        }
+
+        return context;
+      }
+    });
+
+    // Add resource validation hook
+    this.addHook({
+      name: 'resource-validation',
+      phase: 'preHandler',
+      priority: 70,
+      handler: async (context: any) => {
+        // Validate resources during create/update/patch operations
+        if (['create', 'update', 'patch'].includes(context.operation) && context.body) {
+          const resourceType = context.resourceType;
+          if (resourceType) {
+            const schema = this.getSchema(resourceType);
+            if (schema) {
+              // Basic validation - in production use full FHIRSchema validation
+              if (!context.body.resourceType || context.body.resourceType !== resourceType) {
+                // Set error response in context
+                (context as any).setResponse({
+                  statusCode: 422,
+                  responseHeaders: {
+                    'Content-Type': 'application/fhir+json; charset=utf-8',
+                    'X-Request-ID': context.requestId
+                  },
+                  responseBody: {
+                    resourceType: 'OperationOutcome',
+                    issue: [{
+                      severity: 'error',
+                      code: 'invalid',
+                      diagnostics: `Resource type mismatch: expected ${resourceType}, got ${context.body.resourceType || 'undefined'}`
+                    }]
+                  },
+                  timing: {
+                    startTime: context.startTime,
+                    endTime: Date.now(),
+                    duration: Date.now() - context.startTime,
+                    hookDuration: 0
+                  }
+                });
+                (context as any).takeOver();
+              }
+            }
+          }
+        }
+        return context;
+      }
+    });
+  }
+
+  /**
+   * Register capability hooks
+   */
+  private registerCapabilityHooks(): void {
+    if (!this.capabilityGenerator) {
+      return;
+    }
+
+    // Update capability statement when packages are loaded
+    this.addHook({
+      name: 'capability-package-integration',
+      phase: 'onRouteRegister',
+      priority: 70, // After packages and routes are loaded
+      handler: async (context) => {
+        const packages = this.packageIntegration?.getLoadedPackages() || [];
+        this.capabilityGenerator!.updateWithPackages(packages);
+
+        // Update with resource capabilities
+        const resourceCapabilities = new Map<string, ResourceCapabilities>();
+        for (const pkg of packages) {
+          for (const [url, _] of Object.entries(pkg.resources)) {
+            const resourceType = this.extractResourceTypeFromUrl(url);
+            if (resourceType) {
+              const capabilities = this.routeGenerator?.getResourceCapabilities(resourceType);
+              if (capabilities) {
+                resourceCapabilities.set(resourceType, capabilities);
+              }
+            }
+          }
+        }
+
+        this.capabilityGenerator!.updateWithResourceCapabilities(resourceCapabilities);
+
+        this.log('info', 'Capability statement updated', {
+          resourceCount: resourceCapabilities.size,
+          packageCount: packages.length
+        });
+
+        return context;
+      }
+    });
+  }
+
+  /**
+   * Register /metadata endpoint
+   */
+  private registerMetadataEndpoint(): void {
+    if (!this.metadataHandler) {
+      return;
+    }
+
+    const handler = this.metadataHandler;
+
+    this.router.addRoute({
+      method: 'GET',
+      pattern: '/metadata' as any,
+      operation: 'capabilities' as any,
+      level: 'system',
+      priority: 1000, // High priority
+      handler: async (context: HttpRequestContext): Promise<HttpResponseContext> => {
+        // Update base URL from request
+        const host = context.headers.host || context.headers.Host || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        this.capabilityGenerator!.setBaseUrl(`${protocol}://${host}`);
+
+        return handler.handle(context);
+      },
+      description: 'Get server capability statement'
+    } as any);
+
+    this.log('info', 'Registered /metadata endpoint');
+  }
+
+  /**
+   * Extract resource type from StructureDefinition URL
+   */
+  private extractResourceTypeFromUrl(url: string): string | undefined {
+    // Example: http://hl7.org/fhir/StructureDefinition/Patient -> Patient
+    const match = url.match(/\/StructureDefinition\/([A-Z][a-zA-Z]+)$/);
+    return match ? match[1] : undefined;
   }
 
   /**
