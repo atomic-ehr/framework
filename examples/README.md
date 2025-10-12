@@ -1,319 +1,225 @@
 # Atomic FHIR Server Examples
 
-This directory contains comprehensive examples demonstrating different features and use cases of the Atomic FHIR Server framework.
+Learn how to use the Atomic FHIR Server framework through these examples.
 
-## Examples Overview
+## Getting Started
 
-### 01. Basic Server
-**Path**: `01-basic-server/`
-**Complexity**: ⭐ Beginner
-**Time**: 5 minutes
+All examples use Bun as the runtime. Install it first:
 
-The simplest possible FHIR server in just 10 lines of code.
-
-**What you'll learn**:
-- ✅ Minimal server setup
-- ✅ Automatic FHIR R4 Core package loading
-- ✅ Full CRUD operations out of the box
-- ✅ Auto-generated capability statement
-
-**Run it**:
-```bash
-cd 01-basic-server
-bun server.js
-```
-
-**Test it**:
-```bash
-curl http://localhost:3000/metadata
-curl http://localhost:3000/Patient
-```
-
----
-
-### 02. Server with Hooks
-**Path**: `02-with-hooks/`
-**Complexity**: ⭐⭐ Intermediate
-**Time**: 10 minutes
-
-Demonstrates how to add custom business logic using the hooks system.
-
-**What you'll learn**:
-- ✅ Adding lifecycle hooks
-- ✅ Automatic timestamping
-- ✅ Custom validation rules
-- ✅ Audit logging
-- ✅ Hook phases and priorities
-
-**Run it**:
-```bash
-cd 02-with-hooks
-bun server.js
-```
-
-**Test it**:
-```bash
-# Should fail - no family name
-curl -X POST http://localhost:3000/Patient \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","gender":"male"}'
-
-# Should succeed
-curl -X POST http://localhost:3000/Patient \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","name":[{"family":"Doe","given":["John"]}]}'
-```
-
----
-
-### 03. Server with Authentication
-**Path**: `03-with-auth/`
-**Complexity**: ⭐⭐⭐ Advanced
-**Time**: 15 minutes
-
-Demonstrates JWT-based authentication and role-based authorization.
-
-**What you'll learn**:
-- ✅ Bearer token authentication
-- ✅ Role-based access control
-- ✅ Permission checking
-- ✅ Audit logging with user info
-- ✅ Security best practices
-
-**Run it**:
-```bash
-cd 03-with-auth
-bun server.js
-```
-
-**Test it**:
-```bash
-# No auth - should fail (401)
-curl http://localhost:3000/Patient
-
-# With admin token - should succeed
-curl http://localhost:3000/Patient \
-  -H "Authorization: Bearer admin-token-123"
-
-# Create with readonly token - should fail (403)
-curl -X POST http://localhost:3000/Patient \
-  -H "Authorization: Bearer readonly-token-789" \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","name":[{"family":"Test"}]}'
-
-# Create with doctor token - should succeed
-curl -X POST http://localhost:3000/Patient \
-  -H "Authorization: Bearer doctor-token-456" \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","name":[{"family":"Doe","given":["John"]}]}'
-```
-
-**Available Tokens**:
-- `admin-token-123` - Admin (read, write, delete)
-- `doctor-token-456` - Doctor (read, write)
-- `readonly-token-789` - Viewer (read only)
-
----
-
-### 04. Custom Operations
-**Path**: `04-custom-operations/`
-**Complexity**: ⭐⭐⭐ Advanced
-**Time**: 15 minutes
-
-Demonstrates how to implement custom FHIR operations beyond standard CRUD.
-
-**What you'll learn**:
-- ✅ Implementing custom operations
-- ✅ URL pattern matching
-- ✅ Operation parameters
-- ✅ Taking over request handling
-- ✅ Returning custom responses
-
-**Custom Operations**:
-- `GET /Patient/{id}/$summary` - Get patient summary bundle
-- `POST /Patient/$validate` - Validate patient without saving
-- `GET /$stats` - Get server statistics
-
-**Run it**:
-```bash
-cd 04-custom-operations
-bun server.js
-```
-
-**Test it**:
-```bash
-# Create a patient first
-curl -X POST http://localhost:3000/Patient \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","name":[{"family":"Doe","given":["John"]}]}'
-
-# Get patient summary (use ID from above)
-curl http://localhost:3000/Patient/{id}/\$summary
-
-# Validate a patient
-curl -X POST http://localhost:3000/Patient/\$validate \
-  -H "Content-Type: application/fhir+json" \
-  -d '{"resourceType":"Patient","gender":"invalid"}'
-
-# Get server stats
-curl http://localhost:3000/\$stats
-```
-
----
-
-## Prerequisites
-
-### Required Software
-- **Bun** v1.0.0 or higher (recommended) OR **Node.js** v18+ with npm
-- Basic understanding of FHIR R4 concepts
-
-### Installation
-
-Install Bun (if not already installed):
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
-Install dependencies (from the framework root):
+## Examples
+
+### [01-simple-server](./01-simple-server)
+
+**The absolute minimum** - Get a fully-functional FHIR R4 server running in just a few lines.
+
+**Features:**
+- ✅ Full FHIR R4 REST API
+- ✅ Automatic validation
+- ✅ Metadata endpoint
+- ✅ All CRUD operations
+- ✅ In-memory storage
+
+**Perfect for:**
+- Learning the basics
+- Quick prototyping
+- Testing FHIR concepts
+
 ```bash
-cd /path/to/framework
+cd 01-simple-server
 bun install
+bun run dev
 ```
 
-## Running Examples
+### [02-extending-framework](./02-extending-framework)
 
-Each example is self-contained and can be run independently:
+**Comprehensive extensions** - Learn how to extend the framework with plugins, decorators, and custom types.
+
+**Features:**
+- 🔌 Plugin system (4 plugins)
+- 🎨 Type system extensions (declaration merging)
+- 📝 Decorators (server, request, response)
+- 🪝 Custom hooks (metrics, auth, audit)
+- 🔐 Authentication (JWT)
+- 🚩 Feature flags
+- 📊 Database integration
+- ✅ Type safety throughout
+
+**Perfect for:**
+- Production applications
+- Complex requirements
+- Team collaboration
+- Reusable components
 
 ```bash
-# Navigate to the example directory
-cd examples/01-basic-server
-
-# Run the server
-bun server.js
-
-# The server will start on http://localhost:3000
+cd 02-extending-framework
+bun install
+bun run dev
 ```
 
-## Common Testing Commands
+## Comparison
 
-All examples use port 3000 by default. Here are common testing commands:
+| Feature | 01-simple-server | 02-extending-framework |
+|---------|------------------|------------------------|
+| Lines of Code | ~30 | ~400 |
+| Setup Time | 1 minute | 5 minutes |
+| FHIR API | ✅ | ✅ |
+| Validation | ✅ | ✅ |
+| Plugins | ❌ | ✅ 4 plugins |
+| Decorators | ❌ | ✅ All levels |
+| Type Safety | Basic | Advanced |
+| Authentication | ❌ | ✅ JWT |
+| Custom Hooks | ❌ | ✅ 3 hooks |
+| Feature Flags | ❌ | ✅ |
+| Audit Logging | ❌ | ✅ |
+| Production Ready | 🟡 | ✅ |
 
-### Get Server Metadata
-```bash
-curl http://localhost:3000/metadata
+## Quick Start
+
+### Option 1: Simple Server (Recommended for Learning)
+
+```typescript
+import { FhirServer } from '@atomic-ehr/server';
+
+const server = new FhirServer({
+  port: 3000,
+  packages: ['hl7.fhir.r4.core#4.0.1'],
+});
+
+await server.start();
 ```
 
-### Create a Patient
-```bash
-curl -X POST http://localhost:3000/Patient \
-  -H "Content-Type: application/fhir+json" \
-  -d '{
-    "resourceType": "Patient",
-    "name": [{"family": "Doe", "given": ["John"]}],
-    "gender": "male",
-    "birthDate": "1980-01-01"
-  }'
-```
+### Option 2: Extended Server (Recommended for Production)
 
-### Search Patients
-```bash
-curl http://localhost:3000/Patient
-curl http://localhost:3000/Patient?family=Doe
-curl http://localhost:3000/Patient?gender=male
-```
+```typescript
+import { FhirServer, definePlugin } from '@atomic-ehr/server';
 
-### Read a Patient
-```bash
-curl http://localhost:3000/Patient/{id}
-```
+// Define plugins
+const authPlugin = definePlugin({ /* ... */ });
+const auditPlugin = definePlugin({ /* ... */ });
 
-### Update a Patient
-```bash
-curl -X PUT http://localhost:3000/Patient/{id} \
-  -H "Content-Type: application/fhir+json" \
-  -d '{
-    "resourceType": "Patient",
-    "id": "{id}",
-    "name": [{"family": "Smith", "given": ["Jane"]}],
-    "gender": "female"
-  }'
-```
+// Create server
+const server = new FhirServer({ port: 3000 });
 
-### Delete a Patient
-```bash
-curl -X DELETE http://localhost:3000/Patient/{id}
+// Register plugins
+await server.register(authPlugin);
+await server.register(auditPlugin);
+
+// Add decorators
+server.decorate('database', db);
+server.decorateRequest('user', null);
+
+// Start
+await server.start();
 ```
 
 ## Learning Path
 
-We recommend following the examples in order:
+1. **Start with Example 1** - Understand the basics
+   - How FHIR servers work
+   - Basic CRUD operations
+   - Validation and metadata
 
-1. **Start with 01-basic-server** to understand the fundamentals
-2. **Move to 02-with-hooks** to learn about custom business logic
-3. **Try 03-with-auth** to add security to your server
-4. **Explore 04-custom-operations** to extend beyond CRUD
+2. **Move to Example 2** - Learn advanced features
+   - Plugin architecture
+   - Type system extensions
+   - Decorators pattern
+   - Custom hooks
+   - Production patterns
 
-## Example Structure
+3. **Build Your Own** - Apply what you learned
+   - Create custom plugins
+   - Extend types for your domain
+   - Add business logic
+   - Deploy to production
 
-Each example follows this structure:
+## Common Patterns
 
+### Creating a Plugin
+
+```typescript
+import { definePlugin } from '@atomic-ehr/server';
+
+const myPlugin = definePlugin(
+  {
+    name: 'my-plugin',
+    version: '1.0.0',
+    description: 'What it does',
+  },
+  async (context, options) => {
+    // Plugin initialization
+    return context;
+  }
+);
+
+await server.register(myPlugin);
 ```
-example-name/
-├── server.js           # Main server implementation
-├── README.md           # Example-specific documentation
-└── package.json        # (optional) Example-specific dependencies
+
+### Extending Types
+
+```typescript
+declare module '@atomic-ehr/core' {
+  interface ServerDecorators {
+    myService: MyService;
+  }
+
+  interface RequestDecorators {
+    user: User | null;
+  }
+}
 ```
 
-## Troubleshooting
+### Adding Hooks
 
-### Port Already in Use
-If you see "port 3000 already in use", either:
-- Stop the previous example server (Ctrl+C)
-- Change the port in the server configuration:
-  ```javascript
-  const server = new FhirServer({
-    port: 3001,  // Use a different port
-    // ...
-  });
-  ```
+```typescript
+server.addHook({
+  name: 'my-hook',
+  phase: 'preHandler',
+  priority: 100,
+  async handler(context, next) {
+    // Your logic here
+    return next();
+  }
+});
+```
 
-### Package Download Issues
-If FHIR packages fail to download:
-- Check your internet connection
-- The packages will be cached in `~/.fhir/packages/` after first download
-- You can manually download packages from https://packages.fhir.org/
+## Testing Examples
 
-### FHIR Validation Errors
-If you see validation errors:
-- Check that your resource structure matches FHIR R4 specification
-- Ensure required fields are present
-- Verify data types are correct (e.g., dates in YYYY-MM-DD format)
+Each example includes curl commands for testing:
 
-## Additional Resources
+```bash
+# Get server capabilities
+curl http://localhost:3000/metadata
 
-- **FHIR R4 Specification**: https://hl7.org/fhir/R4/
-- **Framework Documentation**: `/docs/getting-started.md`
-- **API Reference**: `/docs/api-reference.md`
-- **FHIR Package Registry**: https://packages.fhir.org/
+# Create a resource
+curl -X POST http://localhost:3000/Patient \
+  -H "Content-Type: application/fhir+json" \
+  -d '{"resourceType":"Patient","name":[{"family":"Doe"}]}'
 
-## Contributing Examples
+# Search resources
+curl http://localhost:3000/Patient
 
-Have an idea for a new example? Contributions are welcome!
+# With authentication (Example 2)
+curl -H "Authorization: Bearer valid-token" \
+  http://localhost:3000/Patient
+```
 
-Examples should:
-- Be self-contained and runnable
-- Include clear documentation
-- Follow the existing example structure
-- Demonstrate a specific feature or use case
-- Include test commands in the README
+## Documentation
 
-## Next Steps
+- [Plugin System Guide](../docs/plugin-system.md)
+- [Hook System Guide](../docs/hook-system.md)
+- [Configuration Reference](../docs/configuration.md)
+- [API Reference](../docs/api-reference.md)
 
-After completing these examples, you're ready to:
+## Need Help?
 
-1. **Build your own FHIR server** - Start with the basic template and add features
-2. **Explore advanced topics** - Check out the full documentation in `/docs/`
-3. **Integrate with your systems** - Connect to databases, add authentication, implement custom operations
-4. **Deploy to production** - Learn about deployment best practices
+- 📚 Read the [documentation](../docs)
+- 💬 Join [GitHub Discussions](https://github.com/atomic-ehr/framework/discussions)
+- 🐛 Report [issues](https://github.com/atomic-ehr/framework/issues)
 
-Happy coding! 🚀
+## Contributing
+
+Want to add an example? See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.

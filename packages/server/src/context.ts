@@ -200,7 +200,10 @@ export class ContextManager {
 
     for (const [key, value] of Object.entries(headers)) {
       if (value) {
-        normalized[key.toLowerCase()] = Array.isArray(value) ? value[0] : value;
+        const headerValue = Array.isArray(value) ? value[0] : value;
+        if (headerValue) {
+          normalized[key.toLowerCase()] = headerValue;
+        }
       }
     }
 
@@ -212,7 +215,7 @@ export class ContextManager {
    */
   private extractResourceType(url: string): string | undefined {
     // Basic pattern matching - will be enhanced in Task 003
-    const cleanUrl = url.split('?')[0]; // Remove query parameters
+    const cleanUrl = url.split('?')[0] || ''; // Remove query parameters
     const pathSegments = cleanUrl.split('/').filter(Boolean);
 
     // Look for FHIR resource type pattern (capitalized word)
@@ -229,7 +232,7 @@ export class ContextManager {
    * Extract operation from method and URL (basic implementation for Task 002)
    */
   private extractOperation(method: string, url: string): string | undefined {
-    const cleanUrl = url.split('?')[0];
+    const cleanUrl = url.split('?')[0] || '';
     const hasId = cleanUrl.split('/').pop()?.match(/^[a-zA-Z0-9\-\.]{1,64}$/);
 
     switch (method.toUpperCase()) {
@@ -307,12 +310,20 @@ export class ContextManager {
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {
       const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-      return ips.split(',')[0].trim();
+      if (ips) {
+        const firstIp = ips.split(',')[0];
+        if (firstIp) {
+          return firstIp.trim();
+        }
+      }
     }
 
     const realIp = req.headers['x-real-ip'];
     if (realIp) {
-      return Array.isArray(realIp) ? realIp[0] : realIp;
+      const ip = Array.isArray(realIp) ? realIp[0] : realIp;
+      if (ip) {
+        return ip;
+      }
     }
 
     return req.socket.remoteAddress || 'unknown';

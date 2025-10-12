@@ -2,7 +2,7 @@
  * Metadata endpoint handler
  */
 
-import type { LoadedPackage } from '@atomic-ehr/packages';
+import type { LoadedPackage } from '../packages-loader/index.js';
 import type { HttpRequestContext, HttpResponseContext } from '../types.js';
 import type { CapabilityStatement } from './types.js';
 import { CapabilityStatementGenerator } from './generator.js';

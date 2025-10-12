@@ -1,0 +1,16 @@
+{
+  "name": "02-extending-framework",
+  "version": "1.0.0",
+  "description": "Comprehensive example showing framework extension capabilities",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run server.ts",
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@atomic-ehr/server": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

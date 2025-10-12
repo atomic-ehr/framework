@@ -25,5 +25,5 @@ export type {
   ContactDetail,
   ContactPoint,
   ValidationResult,
-  ValidationError
+  ValidationError as CapabilityValidationError
 } from './types.js';

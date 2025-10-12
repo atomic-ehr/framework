@@ -86,7 +86,7 @@ export function matchPattern(
   for (let i = 0; i < compiledPattern.paramNames.length; i++) {
     const paramName = compiledPattern.paramNames[i];
     const paramValue = match[i + 1];
-    if (paramValue !== undefined) {
+    if (paramName && paramValue !== undefined) {
       params[paramName] = decodeURIComponent(paramValue);
     }
   }
@@ -100,7 +100,7 @@ export function matchPattern(
 export function parseFhirUrl(method: string, url: string): ParsedFhirUrl {
   // Remove query parameters for path analysis
   const [path, queryString] = url.split('?');
-  const cleanPath = path.replace(/\/$/, '') || '/'; // Remove trailing slash
+  const cleanPath = (path || '').replace(/\/$/, '') || '/'; // Remove trailing slash
 
   // Parse query parameters
   const searchParams: Record<string, string> = {};
@@ -116,89 +116,94 @@ export function parseFhirUrl(method: string, url: string): ParsedFhirUrl {
 
   // System level operations
   if (segments.length === 0 || cleanPath === '/') {
-    return determineSystemOperation(method, searchParams, path);
+    return determineSystemOperation(method, searchParams, path || '');
+  }
+
+  const firstSegment = segments[0];
+  if (!firstSegment) {
+    return determineSystemOperation(method, searchParams, path || '');
   }
 
   // Special system endpoints
-  if (segments[0] === 'metadata') {
+  if (firstSegment === 'metadata') {
     return {
       operation: FhirOperation.CAPABILITIES,
       level: 'system',
-      path,
+      path: path || '',
       method,
       searchParams
     };
   }
 
-  if (segments[0] === '_history') {
+  if (firstSegment === '_history') {
     return {
       operation: FhirOperation.HISTORY_SYSTEM,
       level: 'system',
-      path,
+      path: path || '',
       method,
       searchParams
     };
   }
 
   // System level operations: /$operation
-  if (segments[0].startsWith('$')) {
+  if (firstSegment.startsWith('$')) {
     return {
       operation: FhirOperation.OPERATION,
       level: 'system',
-      operationName: segments[0].substring(1),
-      path,
+      operationName: firstSegment.substring(1),
+      path: path || '',
       method,
       searchParams
     };
   }
 
   // Must start with resource type
-  const resourceType = segments[0];
+  const resourceType = firstSegment;
   if (!isValidResourceType(resourceType)) {
     throw new Error(`Invalid resource type: ${resourceType}`);
   }
 
   // Type level operations
   if (segments.length === 1) {
-    return determineTypeOperation(method, resourceType, searchParams, path);
+    return determineTypeOperation(method, resourceType, searchParams, path || '');
   }
 
+  const secondSegment = segments[1];
+
   // Type level with _history or $operation
-  if (segments.length === 2) {
-    if (segments[1] === '_history') {
+  if (segments.length === 2 && secondSegment) {
+    if (secondSegment === '_history') {
       return {
         operation: FhirOperation.HISTORY_TYPE,
         level: 'type',
         resourceType,
-        path,
+        path: path || '',
         method,
         searchParams
       };
     }
 
-    if (segments[1].startsWith('$')) {
+    if (secondSegment.startsWith('$')) {
       return {
         operation: FhirOperation.OPERATION,
         level: 'type',
         resourceType,
-        operationName: segments[1].substring(1),
-        path,
+        operationName: secondSegment.substring(1),
+        path: path || '',
         method,
         searchParams
       };
     }
 
     // Instance level operations
-    const id = segments[1];
-    return determineInstanceOperation(method, resourceType, id, [], searchParams, path);
+    return determineInstanceOperation(method, resourceType, secondSegment, [], searchParams, path || '');
   }
 
   // Instance level with additional segments
-  if (segments.length >= 3) {
-    const id = segments[1];
+  if (segments.length >= 3 && secondSegment) {
     const remainingSegments = segments.slice(2);
 
-    return determineInstanceOperation(method, resourceType, id, remainingSegments, searchParams, path);
+    return determineInstanceOperation(method, resourceType, secondSegment, remainingSegments, searchParams, path || '');
   }
 
   throw new Error(`Unable to parse FHIR URL: ${url}`);
@@ -312,13 +317,14 @@ function determineInstanceOperation(
   }
 
   // Handle $operations
-  if (remainingSegments.length === 1 && remainingSegments[0].startsWith('$')) {
+  const firstRemainingSegment = remainingSegments[0];
+  if (remainingSegments.length === 1 && firstRemainingSegment?.startsWith('$')) {
     return {
       operation: FhirOperation.OPERATION,
       level: 'instance',
       resourceType,
       id,
-      operationName: remainingSegments[0].substring(1),
+      operationName: firstRemainingSegment.substring(1),
       path,
       method,
       searchParams

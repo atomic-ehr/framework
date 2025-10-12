@@ -6,6 +6,9 @@
 // Main server class
 export { FhirServer } from './server.js';
 
+// Plugin API
+export { ServerPluginAPI, addPluginMethods } from './server-plugin.js';
+
 // Import types for internal use
 import type { FhirServerConfig } from './types.js';
 import { FhirServer } from './server.js';
@@ -37,13 +40,13 @@ export {
   createOperationOutcome,
   createProfileValidationOperationOutcome,
   createValidationErrorOperationOutcome
-} from '@atomic-ehr/validation-bridge';
+} from './validation/index.js';
 
 export type {
   ValidationBridgeConfig,
   ValidationMetrics,
   ExtendedValidationResult
-} from '@atomic-ehr/validation-bridge';
+} from './validation/index.js';
 
 // Package integration
 export { PackageIntegration, createPackageIntegration } from './integration/packages.js';
@@ -114,7 +117,22 @@ export type {
   AppContext,
   RequestContext,
   ResponseContext,
-  BaseContext
+  BaseContext,
+  // Plugin system types
+  Plugin,
+  PluginFunction,
+  PluginOptions,
+  PluginMetadata,
+  PluginRegistrationContext,
+  PluginRegistry,
+  DecoratorValue,
+  DecoratorGetter,
+  DecoratorScope,
+  DecoratorRegistry,
+  ServerDecorators,
+  RequestDecorators,
+  ResponseDecorators,
+  ContextDecorators
 } from '@atomic-ehr/core';
 
 // Re-export bridge and package types
@@ -126,12 +144,19 @@ export type {
 } from '@atomic-ehr/fhir-bridge';
 
 export type {
-  PackageLoader,
   LoadedPackage,
   PackageLoaderConfig,
   PackageLoadStats,
   ResourceDiscovery
-} from '@atomic-ehr/packages';
+} from './packages-loader/index.js';
+
+export {
+  PackageLoader,
+  PackageCache,
+  PackageLoaderError,
+  MultiplePackageLoadError,
+  createPackageLoader
+} from './packages-loader/index.js';
 
 export type {
   FHIRSchema

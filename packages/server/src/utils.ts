@@ -82,8 +82,8 @@ function validateLoggingConfig(logging: NonNullable<FhirServerConfig['logging']>
 /**
  * Merge default configuration with user configuration
  */
-export function mergeConfig(userConfig: FhirServerConfig): Required<FhirServerConfig> {
-  const defaultConfig: Required<FhirServerConfig> = {
+export function mergeConfig(userConfig: FhirServerConfig): FhirServerConfig {
+  const defaultConfig: Partial<FhirServerConfig> = {
     port: 3000,
     host: 'localhost',
     packages: [],
@@ -145,27 +145,31 @@ export function parseFhirPath(path: string): {
   }
 
   // Check for resource type
-  if (isValidResourceType(segments[0])) {
-    result.resourceType = segments[0];
+  const firstSegment = segments[0];
+  if (firstSegment && isValidResourceType(firstSegment)) {
+    result.resourceType = firstSegment;
 
+    const secondSegment = segments[1];
     // Check for ID
-    if (segments.length > 1 && isValidFhirId(segments[1])) {
-      result.id = segments[1];
+    if (segments.length > 1 && secondSegment && isValidFhirId(secondSegment)) {
+      result.id = secondSegment;
 
+      const thirdSegment = segments[2];
       // Check for history
-      if (segments.length > 2 && segments[2] === '_history') {
-        if (segments.length > 3 && isValidFhirId(segments[3])) {
-          result.versionId = segments[3];
+      if (segments.length > 2 && thirdSegment === '_history') {
+        const fourthSegment = segments[3];
+        if (segments.length > 3 && fourthSegment && isValidFhirId(fourthSegment)) {
+          result.versionId = fourthSegment;
         }
       }
       // Check for operation
-      else if (segments.length > 2 && segments[2].startsWith('$')) {
-        result.operation = segments[2];
+      else if (segments.length > 2 && thirdSegment?.startsWith('$')) {
+        result.operation = thirdSegment;
       }
     }
     // Check for type-level operation
-    else if (segments.length > 1 && segments[1].startsWith('$')) {
-      result.operation = segments[1];
+    else if (segments.length > 1 && secondSegment?.startsWith('$')) {
+      result.operation = secondSegment;
     }
   }
 

@@ -2,7 +2,7 @@
  * Server-specific types for @atomic-ehr/server package
  */
 
-import type { HookDefinition } from '@atomic-ehr/core';
+import type { HookDefinition, Plugin, PluginFunction, PluginOptions } from '@atomic-ehr/core';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 /**
@@ -59,6 +59,12 @@ export interface FhirServerConfig {
 
   /** Pre-configured hooks to register on startup */
   hooks?: HookDefinition[];
+
+  /** Plugins to register on startup */
+  plugins?: Array<{
+    plugin: Plugin | PluginFunction;
+    options?: PluginOptions;
+  }>;
 
   /** Express-style middleware (for future implementation) */
   middleware?: any[];
@@ -178,6 +184,23 @@ export interface HttpRequestContext {
   operation?: string;
   operationId?: string;
 
+  /** Logger instance for request logging */
+  logger?: {
+    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: any[]) => void;
+    warn: (message: string, ...args: any[]) => void;
+    error: (message: string, ...args: any[]) => void;
+  };
+
+  /** Application clock for timing */
+  clock?: any;
+
+  /** Application configuration */
+  config?: any;
+
+  /** Event emitter */
+  events?: any;
+
   /** Hook control state */
   _hookState?: {
     stopped: boolean;
@@ -211,6 +234,14 @@ export interface HttpResponseContext {
 
   /** Diagnostics collected during processing */
   diagnostics?: any[];
+
+  /** Logger instance for response logging */
+  logger?: {
+    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: any[]) => void;
+    warn: (message: string, ...args: any[]) => void;
+    error: (message: string, ...args: any[]) => void;
+  };
 }
 
 /**
@@ -225,6 +256,12 @@ export interface ErrorContext extends HttpRequestContext {
 
   /** Custom error response if provided */
   errorResponse?: HttpResponseContext;
+
+  /** Set error response */
+  setResponse?: (statusCode: number, body: any, headers?: Record<string, string>) => void;
+
+  /** Add diagnostic information */
+  addDiagnostic?: (diagnostic: any) => void;
 }
 
 /**

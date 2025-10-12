@@ -2,14 +2,14 @@
  * Package integration hooks for FhirServer
  */
 
-import { PackageLoader, createPackageLoader } from '@atomic-ehr/packages';
+import { PackageLoader, createPackageLoader } from '../packages-loader/index.js';
 import { createFhirBridge } from '@atomic-ehr/fhir-bridge';
 import type {
   PackageLoaderConfig,
   LoadedPackage,
   PackageLoadStats,
   ResourceDiscovery
-} from '@atomic-ehr/packages';
+} from '../packages-loader/index.js';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
 import type { HookDefinition } from '@atomic-ehr/core';
 

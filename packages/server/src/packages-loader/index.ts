@@ -40,14 +40,18 @@ export type {
   FHIRSchema
 } from '@atomic-ehr/fhirschema';
 
+// Import for local use
+import type { PackageLoaderConfig } from './types.js';
+import { PackageLoader as Loader } from './loader.js';
+
 /**
  * Create a new package loader with configuration
  */
-export function createPackageLoader(config: PackageLoaderConfig): PackageLoader {
-  return new PackageLoader(config);
+export function createPackageLoader(config: PackageLoaderConfig): Loader {
+  return new Loader(config);
 }
 
 /**
  * Default export is the PackageLoader class
  */
-export default PackageLoader;
+export default Loader;

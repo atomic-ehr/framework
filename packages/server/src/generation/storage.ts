@@ -181,7 +181,7 @@ export class ResourceRepositoryAdapter implements StorageAdapter {
 
   async patch(resourceType: string, id: string, patchDoc: any): Promise<StorageResult> {
     try {
-      const patched = await this.repository.patch({ resourceType, id, resource: patchDoc });
+      const patched = await this.repository.patch({ resourceType, id, patch: patchDoc });
       return {
         resource: patched,
         found: true,
@@ -210,11 +210,7 @@ export class ResourceRepositoryAdapter implements StorageAdapter {
   async search(resourceType: string, params: SearchParams): Promise<SearchResult> {
     try {
       // Convert SearchParams to query string for core repository
-      const queryString = Object.entries(params.query)
-        .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(',') : value}`)
-        .join('&');
-
-      const resources = await this.repository.search({ resourceType, query: queryString });
+      const resources = await this.repository.search({ resourceType, query: params.query });
 
       return {
         resources,

@@ -45,6 +45,9 @@ export interface LoadedPackage {
   /** Converted schemas */
   schemas: Map<string, FHIRSchema>;
 
+  /** Resources indexed by canonical URL */
+  resources: Record<string, FHIRSchema>;
+
   /** Resource types available in this package */
   resourceTypes: string[];
 
@@ -149,7 +152,7 @@ export class PackageLoaderError extends Error {
   constructor(
     message: string,
     public readonly code?: string,
-    public readonly cause?: Error
+    public override readonly cause?: Error
   ) {
     super(message);
     this.name = 'PackageLoaderError';

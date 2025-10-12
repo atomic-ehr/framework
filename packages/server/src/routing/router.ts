@@ -198,7 +198,7 @@ export class FhirRouter {
     try {
       // Normalize the URL path
       const [path] = url.split('?');
-      const normalizedPath = normalizePath(path);
+      const normalizedPath = normalizePath(path || '');
       const query = extractQueryParams(url);
 
       // Get potential routes for this method

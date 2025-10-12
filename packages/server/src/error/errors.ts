@@ -196,7 +196,7 @@ export class FhirValidationError extends FhirError {
     this.validationErrors = validationErrors;
   }
 
-  get operationOutcome(): OperationOutcome {
+  override get operationOutcome(): OperationOutcome {
     if (this.validationErrors.length === 0) {
       return this.createOperationOutcome();
     }
@@ -213,7 +213,7 @@ export class FhirValidationError extends FhirError {
     };
   }
 
-  private mapValidationErrorCode(type: string): IssueCode {
+  protected mapValidationErrorCode(type: string): IssueCode {
     const mapping: Record<string, IssueCode> = {
       'required': 'required',
       'type': 'structure',

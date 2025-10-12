@@ -2,7 +2,7 @@
  * Dynamic route generator for FHIR resources
  */
 
-import type { LoadedPackage } from '@atomic-ehr/packages';
+import type { LoadedPackage } from '../packages-loader/index.js';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
 import type { FhirRoute } from '../routing/types.js';
 import { FhirUrlPattern, FhirOperation } from '../routing/types.js';

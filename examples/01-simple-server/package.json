@@ -1,0 +1,16 @@
+{
+  "name": "01-simple-server",
+  "version": "1.0.0",
+  "description": "Minimal FHIR server example",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run server.ts",
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@atomic-ehr/server": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

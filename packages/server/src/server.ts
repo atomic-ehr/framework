@@ -11,7 +11,16 @@ import {
   type HookDefinition,
   type HookPhase,
   type AppContext,
-  type BaseContext
+  type BaseContext,
+  // Plugin system imports
+  PluginRegistry,
+  DecoratorManager,
+  type Plugin,
+  type PluginFunction,
+  type PluginOptions,
+  type DecoratorValue,
+  type DecoratorGetter,
+  type DecoratorScope
 } from '@atomic-ehr/core';
 
 import type {
@@ -25,12 +34,13 @@ import type {
 } from './types.js';
 import { FhirRouter, FhirRoutingError, defaultNotFoundHandler } from './routing/index.js';
 import { PackageIntegration, createPackageIntegration } from './integration/packages.js';
-import type { LoadedPackage } from '@atomic-ehr/packages';
+import type { LoadedPackage } from './packages-loader/index.js';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
 import { RouteGenerator, MemoryStorageAdapter, type StorageAdapter, type ResourceCapabilities } from './generation/index.js';
-import { ValidationBridge, ValidationMetricsCollector, FhirValidationError } from '@atomic-ehr/validation-bridge';
+import { ValidationBridge, ValidationMetricsCollector, FhirValidationError } from './validation/index.js';
 import { CapabilityStatementGenerator, MetadataHandler, type CapabilityStatement } from './capability/index.js';
 import { ErrorHandler, RequestResponseLogger, DebugSupport, createDebugSupport } from './error/index.js';
+import { addPluginMethods } from './server-plugin.js';
 
 /**
  * FHIR Server with integrated hooks system
@@ -56,6 +66,11 @@ export class FhirServer extends EventEmitter {
   private debugSupport: DebugSupport | null = null;
   private isStarted = false;
 
+  // Plugin system
+  private pluginRegistry: PluginRegistry;
+  private decoratorManager: DecoratorManager;
+  private pluginsReady = false;
+
   constructor(config: FhirServerConfig) {
     super();
 
@@ -72,6 +87,10 @@ export class FhirServer extends EventEmitter {
     this.hooksManager = new HooksManager();
     this.router = new FhirRouter();
     this.stats = this.initializeStats();
+
+    // Initialize plugin system
+    this.pluginRegistry = new PluginRegistry();
+    this.decoratorManager = new DecoratorManager();
 
     // Initialize storage
     this.storage = this.config.storage || new MemoryStorageAdapter();
@@ -104,6 +123,15 @@ export class FhirServer extends EventEmitter {
     // Register pre-configured hooks
     if (this.config.hooks) {
       this.config.hooks.forEach(hook => this.addHook(hook));
+    }
+
+    // Register pre-configured plugins (will be initialized on start)
+    if (this.config.plugins) {
+      for (const { plugin, options } of this.config.plugins) {
+        this.pluginRegistry.register(plugin, options).catch(err => {
+          this.log('error', `Failed to register plugin:`, err);
+        });
+      }
     }
 
     // Initialize validation bridge if enabled
@@ -154,6 +182,9 @@ export class FhirServer extends EventEmitter {
     this.debugSupport = config.debug ? new DebugSupport(true) : createDebugSupport();
     const debugHooks = this.debugSupport.createDebugHooks();
     debugHooks.forEach(hook => this.addHook(hook));
+
+    // Add plugin methods to the server instance
+    addPluginMethods(this);
   }
 
   /**
@@ -206,6 +237,11 @@ export class FhirServer extends EventEmitter {
     this.emit('server:starting', { timestamp: Date.now() });
 
     try {
+      // Initialize all registered plugins first
+      if (!this.pluginsReady && this.pluginRegistry.all().length > 0) {
+        await this.initializePlugins();
+      }
+
       // Initialize package integration if configured
       if (this.packageIntegration) {
         await this.packageIntegration.init();
@@ -220,8 +256,14 @@ export class FhirServer extends EventEmitter {
       // Execute registration hooks
       await this.executeHookPhase('onRegister', this.appContext);
 
-      // Execute route registration hooks (placeholder for Task 003)
+      // Execute route registration hooks
       await this.executeHookPhase('onRouteRegister', this.appContext);
+
+      // Execute onReady hooks (all plugins registered, before listening)
+      if (!this.pluginsReady) {
+        await this.executeHookPhase('onReady', this.appContext);
+        this.pluginsReady = true;
+      }
 
       // Create HTTP server
       this.server = createServer((req, res) => {
@@ -237,9 +279,13 @@ export class FhirServer extends EventEmitter {
 
       // Start listening
       await new Promise<void>((resolve, reject) => {
-        this.server!.listen(this.config.port, this.config.host, () => {
+        this.server!.listen(this.config.port, this.config.host, async () => {
           this.isStarted = true;
           this.log('info', `FHIR Server started on http://${this.config.host}:${this.config.port}`);
+
+          // Execute onListen hooks after server starts listening
+          await this.executeHookPhase('onListen', this.appContext);
+
           this.emit('server:started', { timestamp: Date.now() });
           resolve();
         });
@@ -264,6 +310,9 @@ export class FhirServer extends EventEmitter {
     this.emit('server:stopping', { timestamp: Date.now() });
 
     try {
+      // Execute onClose hooks first
+      await this.executeHookPhase('onClose', this.appContext);
+
       // Execute shutdown hooks
       await this.executeHookPhase('onShutdown', this.appContext);
 

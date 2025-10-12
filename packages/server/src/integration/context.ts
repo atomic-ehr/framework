@@ -3,7 +3,7 @@
  */
 
 import type { RequestContext, ResponseContext } from '@atomic-ehr/core';
-import type { PackageLoader, LoadedPackage, ResourceDiscovery } from '@atomic-ehr/packages';
+import type { PackageLoader, LoadedPackage, ResourceDiscovery } from '../packages-loader/index.js';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
 import type { SearchParameter } from '@atomic-ehr/fhir-canonical-manager';
 

@@ -33,7 +33,7 @@ export class EnhancedValidationError extends FhirValidationError {
         allowedValues: error.allowedValues,
         constraint: error.constraint
       }
-    }));
+    })) as ValidationError[];
   }
 
   /**
@@ -55,7 +55,7 @@ export class EnhancedValidationError extends FhirValidationError {
   /**
    * Get enhanced OperationOutcome
    */
-  get operationOutcome(): OperationOutcome {
+  override get operationOutcome(): OperationOutcome {
     return {
       resourceType: 'OperationOutcome',
       issue: this.validationErrors.map(error => ({
@@ -122,7 +122,7 @@ export class EnhancedValidationError extends FhirValidationError {
   /**
    * Map validation error type to FHIR issue code
    */
-  private mapValidationErrorCode(type: string): any {
+  protected override mapValidationErrorCode(type: string): any {
     const mapping: Record<string, string> = {
       'required': 'required',
       'type': 'structure',

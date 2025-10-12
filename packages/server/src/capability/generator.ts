@@ -2,7 +2,7 @@
  * FHIR CapabilityStatement generator
  */
 
-import type { LoadedPackage } from '@atomic-ehr/packages';
+import type { LoadedPackage } from '../packages-loader/index.js';
 import type { FHIRSchema } from '@atomic-ehr/fhirschema';
 import type { ResourceCapabilities } from '../generation/handlers.js';
 import type {

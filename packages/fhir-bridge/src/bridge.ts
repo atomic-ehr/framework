@@ -5,7 +5,6 @@
 import { createCanonicalManager } from '@atomic-ehr/fhir-canonical-manager';
 import { translate } from '@atomic-ehr/fhirschema';
 import type {
-  CanonicalManager,
   Resource,
   PackageId,
   SearchParameter,
@@ -24,6 +23,10 @@ import {
   PackageLoadError,
   SchemaConversionError
 } from './types.js';
+
+// Type alias to work around export conflicts in canonical-manager
+// Using any temporarily to unblock build - TODO: Fix canonical-manager exports
+type CanonicalManager = any;
 
 /**
  * Bridge between canonical-manager and fhirschema for the atomic-ehr framework

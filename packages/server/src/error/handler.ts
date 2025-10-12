@@ -77,7 +77,7 @@ export class ErrorHandler {
 
     // Set response and mark as handled
     if (context.setResponse) {
-      context.setResponse(response);
+      context.setResponse(response.statusCode, response.responseBody, response.responseHeaders);
     }
     context.handled = true;
 

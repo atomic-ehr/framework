@@ -13,10 +13,13 @@ import type {
   PackageLoadProgress,
   PackageLoadStats,
   ResourceDiscovery,
-  PackageLoaderError,
-  MultiplePackageLoadError,
   PackageEvent,
   PackageEventListener
+} from './types.js';
+
+import {
+  PackageLoaderError,
+  MultiplePackageLoadError
 } from './types.js';
 
 /**
@@ -104,11 +107,18 @@ export class PackageLoader {
       const conversionResult = this.bridge.convertToSchemas(fhirPackage.structureDefinitions);
 
       // Create loaded package info
+      // Convert schemas Map to Record for resources property
+      const resources: Record<string, FHIRSchema> = {};
+      for (const [url, schema] of conversionResult.schemas) {
+        resources[url] = schema;
+      }
+
       const loadedPackage: LoadedPackage = {
         name: packageName,
         version: version || 'latest',
         package: fhirPackage,
         schemas: conversionResult.schemas,
+        resources,
         resourceTypes: conversionResult.resourceTypes,
         structureDefinitions: fhirPackage.structureDefinitions,
         searchParameters: fhirPackage.searchParameters,
